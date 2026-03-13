@@ -6,6 +6,18 @@ const notificationService = require('../services/notification.service');
 const auditService = require('../services/audit.service');
 const { validationResult } = require('express-validator');
 
+// ── HELPER: get package IDs for a PMManager (via their batching plant) ────────
+async function getPMManagerPackageIds(userId) {
+  const { rows } = await query(
+    `SELECT p.package_id
+     FROM packages p
+     JOIN user_batching_plants ubp ON p.batching_plant_id = ubp.plant_id
+     WHERE ubp.user_id = $1`,
+    [userId]
+  );
+  return rows.map((r) => r.package_id);
+}
+
 // ── LIST ──────────────────────────────────────────────────────────────────────
 exports.list = asyncHandler(async (req, res) => {
   const user = req.user;
@@ -22,6 +34,11 @@ exports.list = asyncHandler(async (req, res) => {
   } else if (user.role === 'ClusterHead') {
     const { rows: pkgs } = await query('SELECT package_id FROM user_packages WHERE user_id = $1', [user.user_id]);
     const ids = pkgs.map((p) => p.package_id);
+    if (ids.length === 0) return res.json({ data: [], total: 0 });
+    params.push(ids);
+    whereClause += ` AND r.package_id = ANY($${params.length})`;
+  } else if (user.role === 'PMManager') {
+    const ids = await getPMManagerPackageIds(user.user_id);
     if (ids.length === 0) return res.json({ data: [], total: 0 });
     params.push(ids);
     whereClause += ` AND r.package_id = ANY($${params.length})`;
@@ -173,6 +190,12 @@ exports.acknowledge = asyncHandler(async (req, res) => {
   if (!existing[0]) throw new AppError('Reservation not found', 404);
   if (existing[0].status !== 'Submitted') throw new AppError('Only Submitted reservations can be acknowledged', 400);
 
+  // PMManager can only acknowledge their batching plant's packages
+  if (user.role === 'PMManager') {
+    const ids = await getPMManagerPackageIds(user.user_id);
+    if (!ids.includes(existing[0].package_id)) throw new AppError('Not authorized for this package', 403);
+  }
+
   const { rows } = await query(
     `UPDATE reservations
      SET status = 'Acknowledged',
@@ -294,7 +317,11 @@ exports.cancel = asyncHandler(async (req, res) => {
   const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
   if (!existing[0]) throw new AppError('Reservation not found', 404);
 
-  const canCancel = user.role === 'PMHead' || existing[0].requester_id === user.user_id;
+  let canCancel = user.role === 'PMHead' || existing[0].requester_id === user.user_id;
+  if (user.role === 'PMManager') {
+    const ids = await getPMManagerPackageIds(user.user_id);
+    canCancel = ids.includes(existing[0].package_id);
+  }
   if (!canCancel) throw new AppError('Not authorized to cancel', 403);
 
   if (['Completed', 'Cancelled'].includes(existing[0].status)) {
@@ -346,6 +373,12 @@ exports.complete = asyncHandler(async (req, res) => {
   if (!existing[0]) throw new AppError('Reservation not found', 404);
   if (existing[0].status !== 'Acknowledged') {
     throw new AppError('Only Acknowledged reservations can be marked as completed', 400);
+  }
+
+  // PMManager can only complete their batching plant's packages
+  if (user.role === 'PMManager') {
+    const ids = await getPMManagerPackageIds(user.user_id);
+    if (!ids.includes(existing[0].package_id)) throw new AppError('Not authorized for this package', 403);
   }
 
   const { rows } = await query(

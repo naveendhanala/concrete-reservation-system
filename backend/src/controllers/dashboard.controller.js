@@ -187,6 +187,82 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
   });
 });
 
+// ── P&M MANAGER DASHBOARD ─────────────────────────────────────────────────────
+exports.pmManagerDashboard = asyncHandler(async (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+  // Get packages assigned to this manager's batching plant
+  const { rows: pkgs } = await query(
+    `SELECT p.package_id FROM packages p
+     JOIN user_batching_plants ubp ON p.batching_plant_id = ubp.plant_id
+     WHERE ubp.user_id = $1`,
+    [req.user.user_id]
+  );
+  const packageIds = pkgs.map((p) => p.package_id);
+  if (!packageIds.length) return res.json({
+    todaySlots: [], pendingAcknowledgments: [], tomorrowReservations: [],
+    todayCompleted: 0, todayPending: 0,
+  });
+
+  const [todaySlots, pendingAck, tomorrowReservations, todayStats] = await Promise.all([
+    // Today's slot utilization (all slots, same as PMHead)
+    query(
+      `SELECT s.slot_id, s.start_time, s.end_time, s.capacity_m3,
+              COALESCE(SUM(rsm.allocated_m3), 0) AS booked_m3,
+              COUNT(DISTINCT rsm.reservation_id) AS reservation_count
+       FROM slots s
+       LEFT JOIN reservation_slot_mappings rsm ON s.slot_id = rsm.slot_id
+       LEFT JOIN reservations r ON rsm.reservation_id = r.reservation_id
+         AND r.status NOT IN ('Rejected','Cancelled')
+       WHERE s.slot_date = $1
+       GROUP BY s.slot_id, s.start_time, s.end_time, s.capacity_m3
+       ORDER BY s.start_time`,
+      [today]
+    ),
+    // Pending acknowledgments for this plant's packages only
+    query(
+      `SELECT r.*, u.name AS requester_name, pkg.package_name
+       FROM reservations r
+       JOIN users u ON r.requester_id = u.user_id
+       JOIN packages pkg ON r.package_id = pkg.package_id
+       WHERE r.status = 'Submitted' AND r.package_id = ANY($1)
+       ORDER BY r.requested_start ASC`,
+      [packageIds]
+    ),
+    // Tomorrow's reservations for this plant's packages
+    query(
+      `SELECT r.*, u.name AS requester_name, pkg.package_name
+       FROM reservations r
+       JOIN users u ON r.requester_id = u.user_id
+       JOIN packages pkg ON r.package_id = pkg.package_id
+       WHERE DATE(r.requested_start) = $1
+         AND r.status IN ('Submitted','Acknowledged')
+         AND r.package_id = ANY($2)
+       ORDER BY r.requested_start`,
+      [tomorrow, packageIds]
+    ),
+    // Today's completion split for this plant's packages
+    query(
+      `SELECT
+         COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
+         COUNT(*) FILTER (WHERE r.status NOT IN ('Completed','Cancelled','Rejected')) AS pending
+       FROM reservations r
+       WHERE DATE(r.requested_start) = $1 AND r.package_id = ANY($2)`,
+      [today, packageIds]
+    ),
+  ]);
+
+  const stats = todayStats.rows[0] || { completed: 0, pending: 0 };
+  res.json({
+    todaySlots: todaySlots.rows,
+    pendingAcknowledgments: pendingAck.rows,
+    tomorrowReservations: tomorrowReservations.rows,
+    todayCompleted: parseInt(stats.completed),
+    todayPending: parseInt(stats.pending),
+  });
+});
+
 // ── CLUSTER HEAD DASHBOARD ────────────────────────────────────────────────────
 exports.clusterHeadDashboard = asyncHandler(async (req, res) => {
   const { rows: pkgs } = await query(

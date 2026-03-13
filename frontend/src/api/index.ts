@@ -59,6 +59,7 @@ export const approvalsApi = {
 export const dashboardApi = {
   pm: () => client.get('/dashboards/pm').then((r) => r.data),
   pmhead: () => client.get('/dashboards/pmhead').then((r) => r.data),
+  pmmanager: () => client.get('/dashboards/pmmanager').then((r) => r.data),
   vp: () => client.get('/dashboards/vp').then((r) => r.data),
   clusterhead: () => client.get('/dashboards/clusterhead').then((r) => r.data),
 };

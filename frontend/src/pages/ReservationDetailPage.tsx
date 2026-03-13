@@ -70,10 +70,11 @@ export default function ReservationDetailPage() {
   if (isLoading) return <div className="animate-pulse h-64 bg-gray-100 rounded-xl" />;
   if (!reservation) return <p className="text-red-500">Reservation not found</p>;
 
-  const canAcknowledge = user?.role === 'PMHead' && reservation.status === 'Submitted';
-  const canComplete = user?.role === 'PMHead' && reservation.status === 'Acknowledged';
+  const isPMOps = user?.role === 'PMHead' || user?.role === 'PMManager';
+  const canAcknowledge = isPMOps && reservation.status === 'Submitted';
+  const canComplete = isPMOps && reservation.status === 'Acknowledged';
   const canCancel = (user?.role === 'PM' && reservation.requester_id === user.userId && !['Completed', 'Cancelled', 'Rejected'].includes(reservation.status))
-    || user?.role === 'PMHead';
+    || isPMOps;
 
   const statusColors: Record<string, string> = {
     Submitted: 'text-blue-700 bg-blue-50', Acknowledged: 'text-green-700 bg-green-50',

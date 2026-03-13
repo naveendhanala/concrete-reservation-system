@@ -17,7 +17,7 @@ router.post('/',
   requireRole('PM'),
   [
     body('slotId').isUUID(),
-    body('quantity_m3').isFloat({ min: 0.1 }),
+    body('quantity_m3').isFloat({ min: 0.1, max: 50 }),
     body('grade').isIn(['M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M45']),
     body('structure').notEmpty(),
     body('chainage').notEmpty(),
@@ -29,22 +29,22 @@ router.post('/',
   ctrl.create
 );
 
-// PATCH acknowledge (P&M Head)
+// PATCH acknowledge (P&M Head or P&M Manager for their plant's packages)
 router.patch('/:id/acknowledge',
-  requireRole('PMHead'),
+  requireRole('PMHead', 'PMManager'),
   ctrl.acknowledge
 );
 
-// PATCH propose alternative slot (P&M Head)
+// PATCH propose alternative slot (P&M Head or P&M Manager)
 router.patch('/:id/propose-alternative',
-  requireRole('PMHead'),
+  requireRole('PMHead', 'PMManager'),
   [body('alternativeSlotId').isUUID()],
   ctrl.proposeAlternative
 );
 
-// PATCH complete reservation (P&M Head)
+// PATCH complete reservation (P&M Head or P&M Manager)
 router.patch('/:id/complete',
-  requireRole('PMHead'),
+  requireRole('PMHead', 'PMManager'),
   [body('actual_quantity_m3').isFloat({ min: 0.1 })],
   ctrl.complete
 );

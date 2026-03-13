@@ -10,11 +10,11 @@ import { useQuery } from '@tanstack/react-query';
 import { notificationsApi } from '../../api/index';
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['PM','ClusterHead','VP','PMHead','Admin'] },
-  { to: '/reservations', icon: ClipboardList, label: 'Reservations', roles: ['PM','ClusterHead','VP','PMHead','Admin'] },
+  { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin'] },
+  { to: '/reservations', icon: ClipboardList, label: 'Reservations', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin'] },
   { to: '/approvals', icon: CheckSquare, label: 'Approvals', roles: ['VP','ClusterHead','PMHead'] },
-  { to: '/calendar', icon: Calendar, label: 'Capacity Calendar', roles: ['PMHead','VP','Admin'] },
-  { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['VP','ClusterHead','PMHead','Admin'] },
+  { to: '/calendar', icon: Calendar, label: 'Capacity Calendar', roles: ['PMHead','PMManager','VP','Admin'] },
+  { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['VP','ClusterHead','PMHead','PMManager','Admin'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['Admin'] },
   { to: '/settings', icon: Settings, label: 'Settings', roles: ['Admin'] },
 ];
@@ -39,6 +39,7 @@ export default function AppLayout() {
     ClusterHead: 'bg-purple-100 text-purple-800',
     VP: 'bg-orange-100 text-orange-800',
     PMHead: 'bg-green-100 text-green-800',
+    PMManager: 'bg-teal-100 text-teal-800',
     Admin: 'bg-red-100 text-red-800',
   };
 

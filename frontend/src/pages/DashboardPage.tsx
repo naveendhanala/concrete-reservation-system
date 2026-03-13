@@ -213,10 +213,99 @@ function PMHeadDashboard() {
   );
 }
 
+// ── P&M Manager Dashboard ─────────────────────────────────────────────────────
+function PMManagerDashboard() {
+  const { data, isLoading } = useQuery({ queryKey: ['dashboard-pmmanager'], queryFn: dashboardApi.pmmanager });
+  if (isLoading) return <div className="animate-pulse h-48 bg-gray-100 rounded-xl" />;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <Link to="/reservations?status=Submitted" className="block">
+          <div className="card p-5 flex items-center gap-4 h-full">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-yellow-50 text-yellow-600">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{data?.pendingAcknowledgments?.length || 0}</p>
+              <p className="text-sm text-gray-500">Pending Acknowledgment</p>
+              <p className="text-xs text-gray-400 mt-0.5">Your plant's packages</p>
+            </div>
+          </div>
+        </Link>
+        <Link to={`/reservations?date=${new Date().toISOString().split('T')[0]}`} className="block">
+          <div className="card p-5 flex items-center gap-4 h-full">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-50 text-blue-600">
+              <ClipboardList className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{(data?.todayCompleted || 0) + (data?.todayPending || 0)}</p>
+              <p className="text-sm text-gray-500">Today's Reservations</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                <span className="text-emerald-600 font-medium">{data?.todayCompleted || 0} completed</span>
+                {' · '}
+                <span className="text-yellow-600 font-medium">{data?.todayPending || 0} pending</span>
+              </p>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      <div className="card p-5">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="font-semibold text-gray-900">Today's Slot Utilization</h3>
+          <Link to="/calendar" className="text-primary-600 text-sm hover:underline">Full Calendar</Link>
+        </div>
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {data?.todaySlots?.map((slot: any) => {
+            const util = Math.round((parseFloat(slot.booked_m3) / parseFloat(slot.capacity_m3)) * 100);
+            return (
+              <div key={slot.slot_id} className="flex items-center gap-3">
+                <span className="text-xs text-gray-500 w-16 flex-shrink-0">
+                  {(slot.start_time ?? '').slice(11, 16)}
+                </span>
+                <div className="flex-1 bg-gray-100 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full ${util > 80 ? 'bg-red-500' : util > 50 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                    style={{ width: `${Math.min(util, 100)}%` }}
+                  />
+                </div>
+                <span className="text-xs text-gray-500 w-20 text-right">{slot.booked_m3}/{slot.capacity_m3} m³</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {data?.pendingAcknowledgments?.length > 0 && (
+        <div className="card p-5">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-semibold text-gray-900">Needs Acknowledgment</h3>
+            <Link to="/reservations?status=Submitted" className="text-primary-600 text-sm hover:underline">View all</Link>
+          </div>
+          {data.pendingAcknowledgments.slice(0, 5).map((r: any) => (
+            <Link key={r.reservation_id} to={`/reservations/${r.reservation_id}`}
+              className="flex justify-between items-start py-2 border-b last:border-0 hover:bg-gray-50 px-1 rounded">
+              <div>
+                <p className="text-sm font-medium">{r.reservation_number}</p>
+                <p className="text-xs text-gray-500">{r.requester_name} · {r.package_name} · {r.quantity_m3} m³ {r.grade}</p>
+              </div>
+              <span className="text-xs text-gray-400">{new Date(r.requested_start).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Dashboard Router ─────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuth();
-  const title = { PM: 'My Dashboard', PMHead: 'P&M Operations', VP: 'Portfolio Overview', ClusterHead: 'Cluster Overview', Admin: 'System Overview' };
+  const title: Record<string, string> = {
+    PM: 'My Dashboard', PMHead: 'P&M Operations', PMManager: 'Plant Operations',
+    VP: 'Portfolio Overview', ClusterHead: 'Cluster Overview', Admin: 'System Overview',
+  };
 
   return (
     <div>
@@ -227,6 +316,7 @@ export default function DashboardPage() {
       {user?.role === 'PM' && <PMDashboard />}
       {user?.role === 'VP' && <VPDashboard />}
       {user?.role === 'PMHead' && <PMHeadDashboard />}
+      {user?.role === 'PMManager' && <PMManagerDashboard />}
       {(user?.role === 'ClusterHead' || user?.role === 'Admin') && <VPDashboard />}
     </div>
   );

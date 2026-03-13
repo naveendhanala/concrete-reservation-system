@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.get('/pm', ctrl.pmDashboard);
 router.get('/pmhead', ctrl.pmHeadDashboard);
+router.get('/pmmanager', ctrl.pmManagerDashboard);
 router.get('/vp', ctrl.vpDashboard);
 router.get('/clusterhead', ctrl.clusterHeadDashboard);
 

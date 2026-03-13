@@ -71,6 +71,9 @@ export default function LoginPage() {
           <p>Admin: admin@concrete.com / Admin@123</p>
           <p>VP: vp@concrete.com / VP@123</p>
           <p>P&M Head: pm_head@concrete.com / PMHead@123</p>
+          <p>P&M Manager 1: pmm1@concrete.com / PMM@123</p>
+          <p>P&M Manager 2: pmm2@concrete.com / PMM@123</p>
+          <p>P&M Manager 3: pmm3@concrete.com / PMM@123</p>
           <p>Cluster Head: ch1@concrete.com / CH@123</p>
           <p>Project Manager: pm1@concrete.com / PM@123</p>
         </div>

@@ -5,10 +5,9 @@ const { query, withTransaction } = require('../config/db');
 const { AppError } = require('../middleware/errorHandler');
 
 function slotShiftName(startTime, endTime) {
-  const pad = (n) => String(n).padStart(2, '0');
-  const s = new Date(startTime);
-  const e = new Date(endTime);
-  return `${pad(s.getHours())}:${pad(s.getMinutes())}–${pad(e.getHours())}:${pad(e.getMinutes())}`;
+  // startTime/endTime are plain strings: "YYYY-MM-DD HH:MM:SS"
+  // Slice directly to avoid any timezone conversion.
+  return `${String(startTime).slice(11, 16)}–${String(endTime).slice(11, 16)}`;
 }
 
 /**
@@ -32,7 +31,14 @@ function getBookableDates() {
  *   - Still have start_time in the future (for today)
  *   - Have remaining capacity > 0
  */
-async function getAvailableSlotsForDate(date) {
+async function getAvailableSlotsForDate(date, batchingPlant) {
+  const params = [date];
+  let plantClause = '';
+  if (batchingPlant) {
+    params.push(batchingPlant);
+    plantClause = `AND s.batching_plant = $${params.length}`;
+  }
+
   const { rows } = await query(
     `SELECT
        s.slot_id,
@@ -40,6 +46,7 @@ async function getAvailableSlotsForDate(date) {
        s.start_time,
        s.end_time,
        s.capacity_m3,
+       s.batching_plant,
        COALESCE(
          (SELECT SUM(rsm.allocated_m3)
           FROM reservation_slot_mappings rsm
@@ -52,8 +59,9 @@ async function getAvailableSlotsForDate(date) {
      WHERE s.slot_date = $1::date
        AND s.is_active = TRUE
        AND s.end_time > (NOW() AT TIME ZONE 'Asia/Kolkata')
+       ${plantClause}
      ORDER BY s.start_time`,
-    [date]
+    params
   );
 
   return rows.map((r) => ({
@@ -74,6 +82,7 @@ async function getAvailableSlotsRange(fromDate, toDate) {
        s.start_time,
        s.end_time,
        s.capacity_m3,
+       s.batching_plant,
        COALESCE(
          (SELECT SUM(rsm.allocated_m3)
           FROM reservation_slot_mappings rsm

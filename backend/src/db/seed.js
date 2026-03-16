@@ -136,7 +136,6 @@ async function seed() {
     for (let day = 0; day < 14; day++) {
       const date = new Date();
       date.setDate(date.getDate() + day);
-      // Use local date to avoid UTC timezone mismatch
       const yyyy = date.getFullYear();
       const mm   = String(date.getMonth() + 1).padStart(2, '0');
       const dd   = String(date.getDate()).padStart(2, '0');
@@ -144,13 +143,13 @@ async function seed() {
 
       for (const slot of generateSlotsForDate(dateStr)) {
         await client.query(
-          `INSERT INTO slots (slot_date, start_time, end_time, capacity_m3)
-           VALUES ($1, $2, $3, $4) ON CONFLICT (slot_date, start_time) DO NOTHING`,
-          [slot.slot_date, slot.start_time, slot.end_time, slot.capacity_m3]
+          `INSERT INTO slots (slot_date, start_time, end_time, capacity_m3, batching_plant)
+           VALUES ($1, $2, $3, $4, $5) ON CONFLICT (slot_date, start_time, batching_plant) DO NOTHING`,
+          [slot.slot_date, slot.start_time, slot.end_time, slot.capacity_m3, slot.batching_plant]
         );
       }
     }
-    console.log('  ✓ Slots seeded (next 14 days, 5 shifts/day)');
+    console.log('  ✓ Slots seeded (next 14 days, 5 shifts × 4 plants = 20 slots/day)');
 
     await client.query('COMMIT');
     console.log('\n✅ Database seeded successfully!');

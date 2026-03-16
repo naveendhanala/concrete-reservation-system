@@ -106,6 +106,7 @@ exports.create = asyncHandler(async (req, res) => {
   const {
     slotId, quantity_m3, grade, structure, chainage,
     nature_of_work, pouring_type, site_engineer_id, contractor_id,
+    rfi_id, batching_plant,
   } = req.body;
 
   // Get user's package
@@ -132,8 +133,11 @@ exports.create = asyncHandler(async (req, res) => {
          (requester_id, package_id, quantity_m3, grade, structure, chainage,
           nature_of_work, pouring_type, site_engineer_id, contractor_id,
           priority_flag, status, requested_start, requested_end,
-          is_split)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+          is_split, rfi_id, batching_plant)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
+               $13::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
+               $14::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
+               $15,$16,$17)
        RETURNING *`,
       [
         user.user_id, packageId, quantity_m3, grade, structure, chainage,
@@ -144,6 +148,8 @@ exports.create = asyncHandler(async (req, res) => {
           ? (await query('SELECT end_time FROM slots WHERE slot_id = $1', [allocation[allocation.length - 1].slot_id])).rows[0].end_time
           : slot.end_time,
         allocation.length > 1,
+        rfi_id || null,
+        batching_plant || null,
       ]
     );
     const reservation = resRows[0];
@@ -238,8 +244,10 @@ exports.proposeAlternative = asyncHandler(async (req, res) => {
       `UPDATE reservations
        SET status = 'Acknowledged',
            acknowledged_by = $1, acknowledged_at = NOW(),
-           acknowledged_start = $2, acknowledged_end = $3,
-           requested_start = $2, requested_end = $3,
+           acknowledged_start = $2::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
+           acknowledged_end   = $3::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
+           requested_start    = $2::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
+           requested_end      = $3::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
            is_split = $4
        WHERE reservation_id = $5`,
       [user.user_id, newSlot[0].start_time, newSlot[0].end_time, allocation.length > 1, id]

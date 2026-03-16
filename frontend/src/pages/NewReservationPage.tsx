@@ -9,6 +9,7 @@ import { AlertCircle, Info } from 'lucide-react';
 
 const GRADES = ['M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M45'];
 const POURING_TYPES = ['BoomPlacer', 'ConcretePump', 'Chute'];
+const BATCHING_PLANTS = ['Camp-1 M3', 'Camp-2 M3', 'Camp-3 M1', 'Camp-1 CP-30'];
 
 export default function NewReservationPage() {
   const { user } = useAuth();
@@ -23,6 +24,8 @@ export default function NewReservationPage() {
     pouring_type: 'BoomPlacer',
     site_engineer_id: '',
     contractor_id: '',
+    rfi_id: '',
+    batching_plant: '',
     slotId: '',
     selectedDate: '',
   });
@@ -30,10 +33,11 @@ export default function NewReservationPage() {
   const [splitWarning, setSplitWarning] = useState<string | null>(null);
   const [isSameDay, setIsSameDay] = useState(false);
 
-  // Fetch today + tomorrow with their predefined shifts
+  // Fetch today + tomorrow with their predefined shifts, filtered by selected plant
   const { data: bookableDates = [], isLoading: datesLoading } = useQuery({
-    queryKey: ['bookable-dates'],
-    queryFn: () => slotsApi.getBookableDates(),
+    queryKey: ['bookable-dates', form.batching_plant],
+    queryFn: () => slotsApi.getBookableDates(form.batching_plant),
+    enabled: !!form.batching_plant,
   });
 
   // Slots for the selected date (from the already-fetched bookable data)
@@ -97,6 +101,8 @@ export default function NewReservationPage() {
       pouring_type: form.pouring_type,
       site_engineer_id: form.site_engineer_id,
       contractor_id: form.contractor_id,
+      rfi_id: form.rfi_id || undefined,
+      batching_plant: form.batching_plant || undefined,
     });
   };
 
@@ -121,11 +127,29 @@ export default function NewReservationPage() {
       )}
 
       <form onSubmit={handleSubmit} className="card p-6 space-y-5">
+        {/* RFI ID & Batching Plant */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="label">RFI ID</label>
+            <input type="text" className="input" placeholder="e.g. RFI-001"
+              value={form.rfi_id} onChange={set('rfi_id')} />
+          </div>
+          <div>
+            <label className="label">Batching Plant <span className="text-red-500">*</span></label>
+            <select className="input" value={form.batching_plant} onChange={set('batching_plant')} required>
+              <option value="">Select plant</option>
+              {BATCHING_PLANTS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+        </div>
+
         {/* Day Selection — Today or Tomorrow */}
         <div>
           <label className="label">Day <span className="text-red-500">*</span></label>
           <div className="grid grid-cols-2 gap-3">
-            {datesLoading ? (
+            {!form.batching_plant ? (
+              <div className="col-span-2 text-sm text-gray-400 py-1">Select a batching plant first.</div>
+            ) : datesLoading ? (
               <div className="col-span-2 text-sm text-gray-400">Loading available days...</div>
             ) : (
               bookableDates.map((day: any) => (

@@ -15,12 +15,13 @@ function localDateStr(offsetDays = 0) {
 
 // Returns the 2 bookable dates (today + tomorrow) with their available shifts
 exports.getBookableDates = asyncHandler(async (req, res) => {
+  const { batchingPlant } = req.query;
   const todayStr    = localDateStr(0);
   const tomorrowStr = localDateStr(1);
 
   const [todaySlots, tomorrowSlots] = await Promise.all([
-    capacityService.getAvailableSlotsForDate(todayStr),
-    capacityService.getAvailableSlotsForDate(tomorrowStr),
+    capacityService.getAvailableSlotsForDate(todayStr, batchingPlant),
+    capacityService.getAvailableSlotsForDate(tomorrowStr, batchingPlant),
   ]);
 
   res.json([
@@ -39,7 +40,8 @@ exports.getAvailable = asyncHandler(async (req, res) => {
     throw new AppError('Slots are only available for today and tomorrow', 400);
   }
 
-  const slots = await capacityService.getAvailableSlotsForDate(date);
+  const { batchingPlant } = req.query;
+  const slots = await capacityService.getAvailableSlotsForDate(date, batchingPlant);
 
   const filtered = minQuantity
     ? slots.filter((s) => s.available_m3 >= parseFloat(minQuantity))
@@ -103,9 +105,9 @@ exports.generateSlots = asyncHandler(async (req, res) => {
     const dateStr = d.toISOString().split('T')[0];
     for (const slot of generateSlotsForDate(dateStr)) {
       const { rowCount } = await query(
-        `INSERT INTO slots (slot_date, start_time, end_time, capacity_m3)
-         VALUES ($1, $2, $3, $4) ON CONFLICT (slot_date, start_time) DO NOTHING`,
-        [slot.slot_date, slot.start_time, slot.end_time, slot.capacity_m3]
+        `INSERT INTO slots (slot_date, start_time, end_time, capacity_m3, batching_plant)
+         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (slot_date, start_time, batching_plant) DO NOTHING`,
+        [slot.slot_date, slot.start_time, slot.end_time, slot.capacity_m3, slot.batching_plant]
       );
       generated += rowCount;
     }

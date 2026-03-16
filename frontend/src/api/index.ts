@@ -33,8 +33,8 @@ export const reservationsApi = {
 // src/api/slots.api.ts
 export const slotsApi = {
   // Returns [{date, label, slots:[]}] for today + tomorrow
-  getBookableDates: () =>
-    client.get('/slots/bookable-dates').then((r) => r.data),
+  getBookableDates: (batchingPlant?: string) =>
+    client.get('/slots/bookable-dates', { params: batchingPlant ? { batchingPlant } : {} }).then((r) => r.data),
 
   getAvailable: (date: string, minQuantity?: number) =>
     client.get('/slots/available', { params: { date, minQuantity } }).then((r) => r.data),

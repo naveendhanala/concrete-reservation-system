@@ -15,6 +15,7 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const reportRoutes = require('./routes/report.routes');
 const configRoutes = require('./routes/config.routes');
 const notificationRoutes = require('./routes/notification.routes');
+const whatsappRoutes = require('./routes/whatsapp.routes');
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { authenticate } = require('./middleware/auth');
@@ -59,6 +60,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().
 
 // Public routes
 app.use('/api/auth', authRoutes);
+app.use('/api/webhook/whatsapp', whatsappRoutes);
 
 // Protected routes
 app.use('/api/users', authenticate, userRoutes);

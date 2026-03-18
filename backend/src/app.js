@@ -62,6 +62,37 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().
 app.use('/api/auth', authRoutes);
 app.use('/api/webhook/whatsapp', whatsappRoutes);
 
+// Vercel Cron Job: generate slots daily (runs at 18:00 UTC = 23:30 IST)
+app.get('/api/cron/generate-slots', async (req, res) => {
+  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const { generateSlotsForDate } = require('./config/shifts');
+    const { query } = require('./config/db');
+    let count = 0;
+    for (let d = 1; d <= 14; d++) {
+      const date = new Date();
+      date.setDate(date.getDate() + d);
+      const yyyy = date.getFullYear();
+      const mm   = String(date.getMonth() + 1).padStart(2, '0');
+      const dd   = String(date.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      for (const slot of generateSlotsForDate(dateStr)) {
+        const { rowCount } = await query(
+          `INSERT INTO slots (slot_date, start_time, end_time, capacity_m3, batching_plant)
+           VALUES ($1,$2,$3,$4,$5) ON CONFLICT (slot_date, start_time, batching_plant) DO NOTHING`,
+          [slot.slot_date, slot.start_time, slot.end_time, slot.capacity_m3, slot.batching_plant]
+        );
+        count += rowCount;
+      }
+    }
+    res.json({ ok: true, created: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Protected routes
 app.use('/api/users', authenticate, userRoutes);
 app.use('/api/packages', authenticate, packageRoutes);

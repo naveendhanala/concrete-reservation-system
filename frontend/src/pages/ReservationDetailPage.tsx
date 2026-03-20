@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reservationsApi } from '../api/index';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { ArrowLeft, CheckCircle, XCircle, PackageCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, PackageCheck, Play } from 'lucide-react';
 import { useState } from 'react';
 
 function Field({ label, value }: { label: string; value: any }) {
@@ -56,6 +56,16 @@ export default function ReservationDetailPage() {
     onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to cancel'),
   });
 
+  const startMutation = useMutation({
+    mutationFn: () => reservationsApi.start(id!),
+    onSuccess: () => {
+      toast.success('Reservation started — P&M Manager notified');
+      queryClient.invalidateQueries({ queryKey: ['reservation', id] });
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to start'),
+  });
+
   const completeMutation = useMutation({
     mutationFn: () => reservationsApi.complete(id!, parseFloat(actualQty)),
     onSuccess: () => {
@@ -72,14 +82,16 @@ export default function ReservationDetailPage() {
 
   const isPMOps = user?.role === 'PMHead' || user?.role === 'PMManager';
   const canAcknowledge = isPMOps && reservation.status === 'Submitted';
-  const canComplete = isPMOps && reservation.status === 'Acknowledged';
+  const canStart = user?.role === 'PM' && reservation.requester_id === user.userId && reservation.status === 'Acknowledged';
+  const canComplete = isPMOps && reservation.status === 'Started';
   const canCancel = (user?.role === 'PM' && reservation.requester_id === user.userId && !['Completed', 'Cancelled', 'Rejected'].includes(reservation.status))
     || isPMOps;
 
   const statusColors: Record<string, string> = {
     Submitted: 'text-blue-700 bg-blue-50', Acknowledged: 'text-green-700 bg-green-50',
-    PendingApproval: 'text-yellow-700 bg-yellow-50', Completed: 'text-emerald-700 bg-emerald-50',
-    Rejected: 'text-red-700 bg-red-50', Cancelled: 'text-gray-600 bg-gray-100',
+    Started: 'text-orange-700 bg-orange-50', PendingApproval: 'text-yellow-700 bg-yellow-50',
+    Completed: 'text-emerald-700 bg-emerald-50', Rejected: 'text-red-700 bg-red-50',
+    Cancelled: 'text-gray-600 bg-gray-100',
   };
 
   return (
@@ -105,6 +117,12 @@ export default function ReservationDetailPage() {
             <button onClick={() => acknowledgeMutation.mutate()} disabled={acknowledgeMutation.isPending}
               className="btn-primary flex items-center gap-1.5 text-xs">
               <CheckCircle className="w-4 h-4" /> Acknowledge
+            </button>
+          )}
+          {canStart && (
+            <button onClick={() => startMutation.mutate()} disabled={startMutation.isPending}
+              className="btn-primary flex items-center gap-1.5 text-xs bg-orange-600 hover:bg-orange-700">
+              <Play className="w-4 h-4" /> Start
             </button>
           )}
           {canComplete && (

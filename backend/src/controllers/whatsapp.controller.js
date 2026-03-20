@@ -54,6 +54,34 @@ exports.handleMessage = async (req, res) => {
 
     logger.info(`WhatsApp message from ${from}: ${text}`);
 
+    // ── Handle START command: "START RES-20260320-001" ────────────────────
+    const startMatch = text.match(/^START\s+(RES-\S+)/i);
+    if (startMatch) {
+      const reservationNumber = startMatch[1].toUpperCase();
+      const { query } = require('../config/db');
+      const { rows } = await query(
+        `SELECT * FROM reservations WHERE reservation_number = $1`,
+        [reservationNumber]
+      );
+      const reservation = rows[0];
+      if (!reservation) {
+        await whatsappService.sendMessage(from, `❌ Reservation ${reservationNumber} not found.`);
+        return;
+      }
+      if (reservation.status !== 'Acknowledged') {
+        await whatsappService.sendMessage(from, `❌ ${reservationNumber} is in "${reservation.status}" status. Only Acknowledged reservations can be started.`);
+        return;
+      }
+      await query(
+        `UPDATE reservations SET status = 'Started' WHERE reservation_id = $1`,
+        [reservation.reservation_id]
+      );
+      await whatsappService.sendMessage(from,
+        `▶️ Reservation ${reservationNumber} has been Started.\n\nP&M Manager can now service this request.`
+      );
+      return;
+    }
+
     // ── Step 1: Parse with Claude ─────────────────────────────────────────
     let fields;
     try {

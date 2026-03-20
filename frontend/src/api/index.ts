@@ -26,6 +26,9 @@ export const reservationsApi = {
   getSlotAllocations: (id: string) =>
     client.get(`/reservations/${id}/slots`).then((r) => r.data),
 
+  start: (id: string) =>
+    client.patch(`/reservations/${id}/start`).then((r) => r.data),
+
   complete: (id: string, actual_quantity_m3: number) =>
     client.patch(`/reservations/${id}/complete`, { actual_quantity_m3 }).then((r) => r.data),
 };

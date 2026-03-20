@@ -367,6 +367,25 @@ exports.cancel = asyncHandler(async (req, res) => {
   res.json({ message: 'Reservation cancelled successfully' });
 });
 
+// ── START ──────────────────────────────────────────────────────────────────────
+exports.start = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const user = req.user;
+
+  const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
+  if (!existing[0]) throw new AppError('Reservation not found', 404);
+  if (existing[0].status !== 'Acknowledged') throw new AppError('Only Acknowledged reservations can be started', 400);
+  if (existing[0].requester_id !== user.user_id) throw new AppError('Not authorized to start this reservation', 403);
+
+  const { rows } = await query(
+    `UPDATE reservations SET status = 'Started' WHERE reservation_id = $1 RETURNING *`,
+    [id]
+  );
+
+  await auditService.log(user.user_id, 'reservations', id, 'Update', existing[0], rows[0]);
+  res.json(rows[0]);
+});
+
 // ── COMPLETE ──────────────────────────────────────────────────────────────────
 exports.complete = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -379,8 +398,8 @@ exports.complete = asyncHandler(async (req, res) => {
 
   const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
   if (!existing[0]) throw new AppError('Reservation not found', 404);
-  if (existing[0].status !== 'Acknowledged') {
-    throw new AppError('Only Acknowledged reservations can be marked as completed', 400);
+  if (existing[0].status !== 'Started') {
+    throw new AppError('Only Started reservations can be marked as completed', 400);
   }
 
   // PMManager can only complete their batching plant's packages

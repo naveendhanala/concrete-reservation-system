@@ -29,6 +29,9 @@ router.post('/',
   ctrl.create
 );
 
+// PATCH start reservation (PM only — after Acknowledged)
+router.patch('/:id/start', requireRole('PM'), ctrl.start);
+
 // PATCH acknowledge (P&M Head or P&M Manager for their plant's packages)
 router.patch('/:id/acknowledge',
   requireRole('PMHead', 'PMManager'),

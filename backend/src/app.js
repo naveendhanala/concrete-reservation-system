@@ -62,6 +62,20 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().
 app.use('/api/auth', authRoutes);
 app.use('/api/webhook/whatsapp', whatsappRoutes);
 
+// One-time seed endpoint — secured by CRON_SECRET, remove after use
+app.post('/api/seed', async (req, res) => {
+  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const seed = require('./db/seed-fn');
+    await seed();
+    res.json({ ok: true, message: 'Database seeded successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Vercel Cron Job: generate slots daily (runs at 18:00 UTC = 23:30 IST)
 app.get('/api/cron/generate-slots', async (req, res) => {
   if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {

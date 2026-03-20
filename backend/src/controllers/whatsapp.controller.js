@@ -41,9 +41,6 @@ exports.verifyWebhook = (req, res) => {
 
 // ── POST: Handle incoming WhatsApp messages ───────────────────────────────────
 exports.handleMessage = async (req, res) => {
-  // Respond 200 immediately — Meta retries if it doesn't get a quick response
-  res.sendStatus(200);
-
   try {
     const entry = req.body?.entry?.[0];
     const change = entry?.changes?.[0]?.value;
@@ -121,5 +118,8 @@ exports.handleMessage = async (req, res) => {
     await whatsappService.sendMessage(from, lines.join('\n'));
   } catch (err) {
     logger.error('WhatsApp webhook unhandled error:', err);
+  } finally {
+    // Always respond 200 to Meta — must be sent before function ends
+    if (!res.headersSent) res.sendStatus(200);
   }
 };

@@ -68,6 +68,12 @@ exports.handleMessage = async (req, res) => {
         await whatsappService.sendMessage(from, `❌ Reservation ${reservationNumber} not found.`);
         return;
       }
+      // Verify sender is an engineer assigned to this reservation's package
+      const authorizedEngineer = await whatsappService.findEngineerByPhone(from, reservation.package_id);
+      if (!authorizedEngineer) {
+        await whatsappService.sendMessage(from, `❌ You are not authorized to start reservations for this package.`);
+        return;
+      }
       if (reservation.status !== 'Acknowledged') {
         await whatsappService.sendMessage(from, `❌ ${reservationNumber} is in "${reservation.status}" status. Only Acknowledged reservations can be started.`);
         return;
@@ -77,7 +83,7 @@ exports.handleMessage = async (req, res) => {
         [reservation.reservation_id]
       );
       await whatsappService.sendMessage(from,
-        `▶️ Reservation ${reservationNumber} has been Started.\n\nP&M Manager can now service this request.`
+        `▶️ Reservation ${reservationNumber} has been Started by ${authorizedEngineer.name}.\n\nP&M Manager can now service this request.`
       );
       return;
     }
@@ -101,6 +107,16 @@ exports.handleMessage = async (req, res) => {
       await whatsappService.sendMessage(
         from,
         `❌ Package not found: "${fields.package_name}"\n\nPlease check the package name and try again.`
+      );
+      return;
+    }
+
+    // ── Step 2b: Verify sender is authorized for this package ─────────────
+    const authorizedEngineer = await whatsappService.findEngineerByPhone(from, pkg.package_id);
+    if (!authorizedEngineer) {
+      await whatsappService.sendMessage(
+        from,
+        `❌ You are not authorized to raise reservations for package "${pkg.package_name}".\n\nPlease contact your Project Manager.`
       );
       return;
     }

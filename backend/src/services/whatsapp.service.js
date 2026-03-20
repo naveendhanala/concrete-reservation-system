@@ -147,6 +147,21 @@ async function findSiteEngineer(name, packageId) {
   return rows[0] || null;
 }
 
+// ── Check if a phone number belongs to an engineer on a package ───────────────
+async function findEngineerByPhone(phone, packageId) {
+  // Normalize: keep digits only, compare last 10 digits for format flexibility
+  const digits = phone.replace(/\D/g, '').slice(-10);
+  const { rows } = await query(
+    `SELECT * FROM site_engineers
+     WHERE package_id = $1
+       AND active_flag = TRUE
+       AND regexp_replace(contact, '[^0-9]', '', 'g') LIKE $2
+     LIMIT 1`,
+    [packageId, `%${digits}`]
+  );
+  return rows[0] || null;
+}
+
 // ── Find contractor by name (fuzzy) ──────────────────────────────────────────
 async function findContractor(name) {
   if (!name) return null;
@@ -166,9 +181,15 @@ async function createReservation(fields, pmUser, packageId) {
     throw new Error(`${fields.slot_name} not found for ${fields.batching_plant} on ${fields.date}`);
   }
 
+  if (fields.quantity_m3 > 50) {
+    throw new Error(`Maximum 50 m³ allowed per reservation. Requested: ${fields.quantity_m3} m³`);
+  }
   const available = parseFloat(slot.capacity_m3) - parseFloat(slot.booked_m3);
   if (available <= 0) {
     throw new Error(`${fields.slot_name} is fully booked for ${fields.batching_plant} on ${fields.date}`);
+  }
+  if (fields.quantity_m3 > available) {
+    throw new Error(`Only ${available} m³ available in ${fields.slot_name} for ${fields.batching_plant} on ${fields.date}. Requested: ${fields.quantity_m3} m³`);
   }
 
   const engineer = await findSiteEngineer(fields.site_engineer_name, packageId);
@@ -238,6 +259,7 @@ module.exports = {
   parseMessage,
   findPackage,
   findPackagePM,
+  findEngineerByPhone,
   findSlot,
   findSiteEngineer,
   findContractor,

@@ -72,8 +72,20 @@ export const usersApi = {
   list: (params?: Record<string, any>) =>
     client.get('/users', { params }).then((r) => r.data),
 
+  getMyPackages: () =>
+    client.get('/users/my-packages').then((r) => r.data),
+
   getEngineers: (packageId: string) =>
     client.get('/users/engineers', { params: { packageId } }).then((r) => r.data),
+
+  createEngineer: (data: Record<string, any>) =>
+    client.post('/users/engineers', data).then((r) => r.data),
+
+  updateEngineer: (id: string, data: Record<string, any>) =>
+    client.patch(`/users/engineers/${id}`, data).then((r) => r.data),
+
+  deleteEngineer: (id: string) =>
+    client.delete(`/users/engineers/${id}`).then((r) => r.data),
 
   getContractors: (search?: string) =>
     client.get('/users/contractors', { params: { search } }).then((r) => r.data),

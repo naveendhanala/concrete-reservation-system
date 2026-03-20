@@ -48,6 +48,18 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   res.json(rows[0]);
 }));
 
+// Get current user's packages (with IDs)
+router.get('/my-packages', asyncHandler(async (req, res) => {
+  const { rows } = await query(
+    `SELECT p.package_id, p.package_name FROM packages p
+     JOIN user_packages up ON p.package_id = up.package_id
+     WHERE up.user_id = $1 AND p.active_flag = TRUE
+     ORDER BY p.package_name`,
+    [req.user.user_id]
+  );
+  res.json(rows);
+}));
+
 // Get site engineers by package
 router.get('/engineers', asyncHandler(async (req, res) => {
   const { packageId } = req.query;
@@ -56,6 +68,58 @@ router.get('/engineers', asyncHandler(async (req, res) => {
     [packageId]
   );
   res.json(rows);
+}));
+
+// Create engineer
+router.post('/engineers', requireRole('PM', 'PMHead', 'Admin'), asyncHandler(async (req, res) => {
+  const { name, contact, package_id } = req.body;
+  if (!name || !contact || !package_id) throw new AppError('name, contact and package_id are required', 400);
+  if (req.user.role === 'PM') {
+    const { rows: pkg } = await query(
+      `SELECT 1 FROM user_packages WHERE user_id = $1 AND package_id = $2`,
+      [req.user.user_id, package_id]
+    );
+    if (!pkg.length) throw new AppError('Not authorized for this package', 403);
+  }
+  const { rows } = await query(
+    `INSERT INTO site_engineers (name, contact, package_id) VALUES ($1, $2, $3) RETURNING *`,
+    [name, contact, package_id]
+  );
+  res.status(201).json(rows[0]);
+}));
+
+// Update engineer
+router.patch('/engineers/:id', requireRole('PM', 'PMHead', 'Admin'), asyncHandler(async (req, res) => {
+  const { name, contact } = req.body;
+  const { rows: eng } = await query(`SELECT * FROM site_engineers WHERE engineer_id = $1`, [req.params.id]);
+  if (!eng[0]) throw new AppError('Engineer not found', 404);
+  if (req.user.role === 'PM') {
+    const { rows: pkg } = await query(
+      `SELECT 1 FROM user_packages WHERE user_id = $1 AND package_id = $2`,
+      [req.user.user_id, eng[0].package_id]
+    );
+    if (!pkg.length) throw new AppError('Not authorized', 403);
+  }
+  const { rows } = await query(
+    `UPDATE site_engineers SET name = COALESCE($1, name), contact = COALESCE($2, contact) WHERE engineer_id = $3 RETURNING *`,
+    [name, contact, req.params.id]
+  );
+  res.json(rows[0]);
+}));
+
+// Delete engineer
+router.delete('/engineers/:id', requireRole('PM', 'PMHead', 'Admin'), asyncHandler(async (req, res) => {
+  const { rows: eng } = await query(`SELECT * FROM site_engineers WHERE engineer_id = $1`, [req.params.id]);
+  if (!eng[0]) throw new AppError('Engineer not found', 404);
+  if (req.user.role === 'PM') {
+    const { rows: pkg } = await query(
+      `SELECT 1 FROM user_packages WHERE user_id = $1 AND package_id = $2`,
+      [req.user.user_id, eng[0].package_id]
+    );
+    if (!pkg.length) throw new AppError('Not authorized', 403);
+  }
+  await query(`DELETE FROM site_engineers WHERE engineer_id = $1`, [req.params.id]);
+  res.json({ success: true });
 }));
 
 // Get contractors with search

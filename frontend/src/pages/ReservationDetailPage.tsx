@@ -101,8 +101,9 @@ export default function ReservationDetailPage() {
   const canAcknowledge = isPMOps && reservation.status === 'Submitted';
   const canStart = user?.role === 'PM' && reservation.requester_id === user.userId && reservation.status === 'Acknowledged';
   const canComplete = isPMOps && reservation.status === 'Started';
-  const canCancel = (user?.role === 'PM' && reservation.requester_id === user.userId && !['Completed', 'Cancelled', 'Rejected'].includes(reservation.status))
-    || isPMOps;
+  const canCancel = !['Completed', 'Cancelled', 'Rejected'].includes(reservation.status) && (
+    (user?.role === 'PM' && reservation.requester_id === user.userId) || isPMOps
+  );
 
   const statusColors: Record<string, string> = {
     Submitted: 'text-blue-700 bg-blue-50', Acknowledged: 'text-green-700 bg-green-50',

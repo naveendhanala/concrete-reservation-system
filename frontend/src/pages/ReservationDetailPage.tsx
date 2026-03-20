@@ -16,6 +16,23 @@ function Field({ label, value }: { label: string; value: any }) {
   );
 }
 
+const highlightColors: Record<string, string> = {
+  blue: 'bg-blue-50 text-blue-700 border-blue-200',
+  green: 'bg-green-50 text-green-700 border-green-200',
+  orange: 'bg-orange-50 text-orange-700 border-orange-200',
+  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  gray: 'bg-gray-50 text-gray-600 border-gray-200',
+};
+
+function TimelineRow({ label, value, highlight = 'gray' }: { label: string; value: string; highlight?: string }) {
+  return (
+    <div className={`flex justify-between items-center px-3 py-2 rounded-lg border text-sm ${highlightColors[highlight] || highlightColors.gray}`}>
+      <span className="font-medium">{label}</span>
+      <span className="font-mono text-xs">{value || '—'}</span>
+    </div>
+  );
+}
+
 export default function ReservationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
@@ -163,15 +180,24 @@ export default function ReservationDetailPage() {
               value={(reservation.requested_start ?? '').slice(0, 16).replace('T', ' ')} />
             <Field label="Requested End"
               value={(reservation.requested_end ?? '').slice(0, 16).replace('T', ' ')} />
-            {reservation.acknowledged_start && (
-              <>
-                <Field label="Confirmed Start"
-                  value={(reservation.acknowledged_start ?? '').slice(0, 16).replace('T', ' ')} />
-                <Field label="Confirmed By" value={reservation.acknowledged_by_name} />
-              </>
+          </div>
+
+          {/* Timeline of status timestamps */}
+          <div className="mt-4 space-y-2">
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Timeline</p>
+            <TimelineRow label="Request Raised" value={(reservation.created_at ?? '').slice(0, 16)} />
+            {reservation.vp_approved_at && (
+              <TimelineRow label={`VP Approved (by ${reservation.vp_approved_by_name || 'VP'})`} value={(reservation.vp_approved_at ?? '').slice(0, 16)} highlight="blue" />
             )}
-            <Field label="Completed At"
-              value={reservation.completed_at ? new Date(reservation.completed_at).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '—'} />
+            {reservation.acknowledged_at && (
+              <TimelineRow label={`Acknowledged (by ${reservation.acknowledged_by_name || 'P&M'})`} value={(reservation.acknowledged_at ?? '').slice(0, 16)} highlight="green" />
+            )}
+            {reservation.started_at && (
+              <TimelineRow label="Started by PM" value={(reservation.started_at ?? '').slice(0, 16)} highlight="orange" />
+            )}
+            {reservation.completed_at && (
+              <TimelineRow label="Completed" value={(reservation.completed_at ?? '').slice(0, 16)} highlight="emerald" />
+            )}
           </div>
 
           {/* Slot allocations (for split reservations) */}

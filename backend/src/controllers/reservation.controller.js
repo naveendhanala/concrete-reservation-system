@@ -83,13 +83,23 @@ exports.getById = asyncHandler(async (req, res) => {
        pkg.package_name,
        se.name AS site_engineer_name, se.contact AS site_engineer_contact,
        c.name AS contractor_name,
-       ab.name AS acknowledged_by_name
+       ab.name AS acknowledged_by_name,
+       vp.acted_at AS vp_approved_at,
+       vp.approver_id AS vp_approver_id,
+       vu.name AS vp_approved_by_name
      FROM reservations r
      JOIN users u ON r.requester_id = u.user_id
      JOIN packages pkg ON r.package_id = pkg.package_id
      LEFT JOIN site_engineers se ON r.site_engineer_id = se.engineer_id
      LEFT JOIN contractors c ON r.contractor_id = c.contractor_id
      LEFT JOIN users ab ON r.acknowledged_by = ab.user_id
+     LEFT JOIN LATERAL (
+       SELECT acted_at, approver_id FROM approval_workflows
+       WHERE reservation_id = r.reservation_id
+         AND approval_type = 'SameDay' AND status = 'Approved'
+       LIMIT 1
+     ) vp ON TRUE
+     LEFT JOIN users vu ON vp.approver_id = vu.user_id
      WHERE r.reservation_id = $1`,
     [req.params.id]
   );
@@ -378,7 +388,7 @@ exports.start = asyncHandler(async (req, res) => {
   if (existing[0].requester_id !== user.user_id) throw new AppError('Not authorized to start this reservation', 403);
 
   const { rows } = await query(
-    `UPDATE reservations SET status = 'Started' WHERE reservation_id = $1 RETURNING *`,
+    `UPDATE reservations SET status = 'Started', started_at = NOW() WHERE reservation_id = $1 RETURNING *`,
     [id]
   );
 

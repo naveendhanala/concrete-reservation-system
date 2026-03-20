@@ -73,7 +73,7 @@ exports.handleMessage = async (req, res) => {
         return;
       }
       await query(
-        `UPDATE reservations SET status = 'Started' WHERE reservation_id = $1`,
+        `UPDATE reservations SET status = 'Started', started_at = NOW() WHERE reservation_id = $1`,
         [reservation.reservation_id]
       );
       await whatsappService.sendMessage(from,

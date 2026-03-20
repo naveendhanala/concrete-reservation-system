@@ -9,6 +9,7 @@ import { Plus } from 'lucide-react';
 function StatusBadge({ status }: { status: string }) {
   const cls: Record<string, string> = {
     Submitted: 'badge-submitted', Acknowledged: 'badge-acknowledged',
+    Started: 'bg-orange-100 text-orange-700',
     PendingApproval: 'badge-pending', Rejected: 'badge-rejected',
     Cancelled: 'badge-cancelled', Completed: 'badge-completed',
     Draft: 'bg-gray-100 text-gray-600',
@@ -58,7 +59,7 @@ export default function ReservationsPage() {
         <select className="input w-40" value={filters.status}
           onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value, page: 1 }))}>
           <option value="">All Status</option>
-          {['Submitted', 'PendingApproval', 'Acknowledged', 'Completed', 'Cancelled', 'Rejected'].map((s) => (
+          {['Submitted', 'PendingApproval', 'Acknowledged', 'Started', 'Completed', 'Cancelled', 'Rejected'].map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
@@ -89,7 +90,7 @@ export default function ReservationsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Reservation #', 'Package', 'Date/Time', 'Quantity', 'Grade', 'Status', 'Completed At'].map((h) => (
+                {['Reservation #', 'Package', 'Date/Time', 'Requested Qty', 'Actual Qty', 'Grade', 'Status', 'Completed At'].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -110,6 +111,7 @@ export default function ReservationsPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 font-medium">{r.quantity_m3} m³</td>
+                  <td className="px-4 py-3 font-medium">{r.actual_quantity_m3 != null ? `${r.actual_quantity_m3} m³` : '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{r.grade?.replace('_', ' ')}</td>
                   <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                   <td className="px-4 py-3 text-gray-600">

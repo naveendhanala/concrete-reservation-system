@@ -26,9 +26,9 @@ types.setTypeParser(1184, (val) => {
 }); // TIMESTAMPTZ → "YYYY-MM-DD HH:MM:SS" in IST
 
 const pool = new Pool(
-  process.env.DATABASE_URL
+  (process.env.DATABASE_URL || process.env.reservations_DATABASE_URL)
     ? {
-        connectionString: process.env.DATABASE_URL,
+        connectionString: process.env.DATABASE_URL || process.env.reservations_DATABASE_URL,
         ssl: { rejectUnauthorized: false },
         max: parseInt(process.env.DB_POOL_MAX || '10'),
         idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000'),

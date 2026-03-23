@@ -26,12 +26,12 @@ export default function CalendarPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <h1 className="text-xl font-bold text-gray-900">Capacity Calendar</h1>
         <div className="flex gap-2 items-center">
-          <button className="btn-secondary text-xs" onClick={() => setWeekStart(addDays(weekStart, -7))}>← Prev Week</button>
-          <span className="text-sm text-gray-600">{format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}</span>
-          <button className="btn-secondary text-xs" onClick={() => setWeekStart(addDays(weekStart, 7))}>Next Week →</button>
+          <button className="btn-secondary text-xs" onClick={() => setWeekStart(addDays(weekStart, -7))}>← Prev</button>
+          <span className="text-sm text-gray-600 flex-1 text-center">{format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}</span>
+          <button className="btn-secondary text-xs" onClick={() => setWeekStart(addDays(weekStart, 7))}>Next →</button>
         </div>
       </div>
 
@@ -45,7 +45,8 @@ export default function CalendarPage() {
       {isLoading ? (
         <div className="animate-pulse h-64 bg-gray-100 rounded-xl" />
       ) : (
-        <div className="grid grid-cols-7 gap-2">
+        <div className="overflow-x-auto -mx-1 pb-2">
+        <div className="grid grid-cols-7 gap-2 min-w-[640px] px-1">
           {days.map((day) => (
             <div key={day} className="card overflow-hidden">
               <div className="bg-gray-50 px-2 py-1.5 border-b border-gray-100 text-center">
@@ -72,6 +73,7 @@ export default function CalendarPage() {
               </div>
             </div>
           ))}
+        </div>
         </div>
       )}
     </div>

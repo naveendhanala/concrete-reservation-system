@@ -46,7 +46,7 @@ export default function ApprovalsPage() {
       <div className="space-y-4">
         {approvals.map((a: any) => (
           <div key={a.approval_id} className="card p-5">
-            <div className="flex items-start justify-between mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-semibold text-gray-900">{a.reservation_number}</span>
@@ -66,7 +66,7 @@ export default function ApprovalsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 mb-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-sm">
               <div className="bg-gray-50 rounded-lg p-2.5">
                 <p className="text-xs text-gray-500">Quantity</p>
                 <p className="font-medium">{a.quantity_m3} m³</p>

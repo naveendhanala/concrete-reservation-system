@@ -55,22 +55,22 @@ export default function ReservationsPage() {
       </div>
 
       {/* Filters */}
-      <div className="card p-4 mb-4 flex gap-3 flex-wrap">
-        <select className="input w-40" value={filters.status}
+      <div className="card p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 lg:flex gap-3 lg:flex-wrap">
+        <select className="input" value={filters.status}
           onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value, page: 1 }))}>
           <option value="">All Status</option>
           {['Submitted', 'PendingApproval', 'Acknowledged', 'Started', 'Completed', 'Cancelled', 'Rejected'].map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <select className="input w-52" value={filters.packageId}
+        <select className="input" value={filters.packageId}
           onChange={(e) => setFilters((f) => ({ ...f, packageId: e.target.value, page: 1 }))}>
           <option value="">All Packages</option>
           {packages.map((p: any) => (
             <option key={p.package_id} value={p.package_id}>{p.package_name}</option>
           ))}
         </select>
-        <input type="date" className="input w-44"
+        <input type="date" className="input"
           value={filters.date}
           onChange={(e) => setFilters((f) => ({ ...f, date: e.target.value, page: 1 }))} />
         {(filters.status || filters.date || filters.packageId) && (
@@ -81,7 +81,7 @@ export default function ReservationsPage() {
       </div>
 
       {/* Table */}
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden overflow-x-auto">
         {isLoading ? (
           <div className="p-8 text-center text-gray-400">Loading...</div>
         ) : reservations.length === 0 ? (

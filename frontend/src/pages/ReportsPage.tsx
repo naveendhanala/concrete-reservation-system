@@ -34,15 +34,15 @@ export default function ReportsPage() {
       <h1 className="text-xl font-bold text-gray-900 mb-6">Reports & Analytics</h1>
 
       {/* Date filters */}
-      <div className="card p-4 mb-6 flex gap-3 flex-wrap items-end">
+      <div className="card p-4 mb-6 grid grid-cols-2 sm:flex gap-3 sm:flex-wrap items-end">
         <div>
           <label className="label">From</label>
-          <input type="date" className="input w-40" value={range.from}
+          <input type="date" className="input" value={range.from}
             onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} />
         </div>
         <div>
           <label className="label">To</label>
-          <input type="date" className="input w-40" value={range.to}
+          <input type="date" className="input" value={range.to}
             onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} />
         </div>
       </div>
@@ -63,7 +63,7 @@ export default function ReportsPage() {
       </div>
 
       {/* SLA Table */}
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden overflow-x-auto">
         <div className="p-4 border-b border-gray-100 font-semibold text-sm">Daily SLA Performance</div>
         {isLoading ? (
           <div className="p-8 text-center text-gray-400">Loading...</div>
@@ -96,7 +96,7 @@ export default function ReportsPage() {
         )}
       </div>
       {/* Package-wise Summary */}
-      <div className="card overflow-hidden">
+      <div className="card overflow-hidden overflow-x-auto">
         <div className="p-4 border-b border-gray-100 font-semibold text-sm">Package-wise Quantity Summary</div>
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">

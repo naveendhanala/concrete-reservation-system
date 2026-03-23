@@ -128,7 +128,7 @@ export default function NewReservationPage() {
 
       <form onSubmit={handleSubmit} className="card p-6 space-y-5">
         {/* RFI ID & Batching Plant */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">RFI ID</label>
             <input type="text" className="input" placeholder="e.g. RFI-001"
@@ -226,7 +226,7 @@ export default function NewReservationPage() {
         )}
 
         {/* Quantity & Grade */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Quantity (m³) <span className="text-red-500">*</span></label>
             <input type="number" className="input" placeholder="e.g. 30" step="0.5" min="0.5" max="50"
@@ -241,7 +241,7 @@ export default function NewReservationPage() {
         </div>
 
         {/* Structure & Chainage */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Structure <span className="text-red-500">*</span></label>
             <input type="text" className="input" placeholder="e.g. Pier Cap P12"

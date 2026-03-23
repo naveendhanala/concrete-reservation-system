@@ -115,22 +115,24 @@ export default function ReservationDetailPage() {
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-600">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-gray-900">{reservation.reservation_number}</h1>
-            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${statusColors[reservation.status] || 'bg-gray-100 text-gray-600'}`}>
-              {reservation.status}
-            </span>
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3 mb-6">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold text-gray-900">{reservation.reservation_number}</h1>
+              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${statusColors[reservation.status] || 'bg-gray-100 text-gray-600'}`}>
+                {reservation.status}
+              </span>
+            </div>
+            <p className="text-sm text-gray-500">{reservation.package_name} · {reservation.requester_name}</p>
           </div>
-          <p className="text-sm text-gray-500">{reservation.package_name} · {reservation.requester_name}</p>
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 sm:flex-shrink-0">
           {canAcknowledge && (
             <button onClick={() => acknowledgeMutation.mutate()} disabled={acknowledgeMutation.isPending}
               className="btn-primary flex items-center gap-1.5 text-xs">
@@ -161,7 +163,7 @@ export default function ReservationDetailPage() {
       <div className="grid gap-4">
         <div className="card p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Concrete Details</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <Field label="Requested Quantity" value={`${reservation.quantity_m3} m³`} />
             {reservation.actual_quantity_m3 != null && (
               <Field label="Actual Quantity" value={`${reservation.actual_quantity_m3} m³`} />
@@ -176,7 +178,7 @@ export default function ReservationDetailPage() {
 
         <div className="card p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Scheduling</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Requested Start"
               value={(reservation.requested_start ?? '').slice(0, 16).replace('T', ' ')} />
             <Field label="Requested End"
@@ -219,7 +221,7 @@ export default function ReservationDetailPage() {
 
         <div className="card p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Team</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Site Engineer" value={reservation.site_engineer_name} />
             <Field label="Engineer Contact" value={reservation.site_engineer_contact} />
             <Field label="Contractor" value={reservation.contractor_name} />

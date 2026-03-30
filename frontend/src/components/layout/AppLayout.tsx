@@ -5,8 +5,8 @@ import {
   LayoutDashboard, ClipboardList, CheckSquare, Calendar,
   BarChart2, Users, Settings, LogOut, Bell, HardHat, ContactRound, Menu, X
 } from 'lucide-react';
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsApi } from '../../api/index';
 
 const navItems = [
@@ -23,8 +23,10 @@ const navItems = [
 export default function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [notifOpen, setNotifOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const bellRef = useRef<HTMLDivElement>(null);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications'],
@@ -32,7 +34,27 @@ export default function AppLayout() {
     refetchInterval: 30000,
   });
 
+  const markAllMutation = useMutation({
+    mutationFn: notificationsApi.markAllRead,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+
   const unreadCount = notifications.filter((n: any) => !n.is_read).length;
+
+  // Close panel when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    }
+    if (notifOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [notifOpen]);
+
+  function openNotifications() {
+    setNotifOpen((prev) => !prev);
+  }
 
   const visibleNav = navItems.filter((n) => user && n.roles.includes(user.role));
 
@@ -133,9 +155,9 @@ export default function AppLayout() {
           </div>
           <div className="flex items-center gap-3">
             {/* Notifications bell */}
-            <div className="relative">
+            <div className="relative" ref={bellRef}>
               <button
-                onClick={() => setNotifOpen(!notifOpen)}
+                onClick={openNotifications}
                 className="relative p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50"
               >
                 <Bell className="w-5 h-5" />
@@ -148,7 +170,15 @@ export default function AppLayout() {
 
               {notifOpen && (
                 <div className="absolute right-0 top-10 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
-                  <div className="p-3 border-b border-gray-100 font-medium text-sm">Notifications</div>
+                  <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+                    <span className="font-medium text-sm">Notifications</span>
+                    {notifications.some((n: any) => !n.is_read) && (
+                      <button onClick={() => markAllMutation.mutate()}
+                        className="text-xs text-primary-600 hover:underline">
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
                   <div className="max-h-64 overflow-y-auto">
                     {notifications.length === 0 && (
                       <p className="p-4 text-sm text-gray-400 text-center">No notifications</p>

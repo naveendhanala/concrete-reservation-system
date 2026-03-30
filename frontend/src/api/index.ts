@@ -29,8 +29,11 @@ export const reservationsApi = {
   start: (id: string) =>
     client.patch(`/reservations/${id}/start`).then((r) => r.data),
 
-  complete: (id: string, actual_quantity_m3: number) =>
-    client.patch(`/reservations/${id}/complete`, { actual_quantity_m3 }).then((r) => r.data),
+  complete: (id: string) =>
+    client.patch(`/reservations/${id}/complete`).then((r) => r.data),
+
+  addDelivery: (id: string, quantity_m3: number, notes?: string) =>
+    client.post(`/reservations/${id}/deliveries`, { quantity_m3, notes }).then((r) => r.data),
 };
 
 // src/api/slots.api.ts

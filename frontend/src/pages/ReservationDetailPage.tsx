@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reservationsApi } from '../api/index';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { ArrowLeft, CheckCircle, XCircle, PackageCheck, Play } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, PackageCheck, Play, Truck } from 'lucide-react';
 import { useState } from 'react';
 
 function Field({ label, value }: { label: string; value: any }) {
@@ -40,8 +40,9 @@ export default function ReservationDetailPage() {
   const queryClient = useQueryClient();
   const [cancelReason, setCancelReason] = useState('');
   const [showCancel, setShowCancel] = useState(false);
-  const [showComplete, setShowComplete] = useState(false);
-  const [actualQty, setActualQty] = useState('');
+  const [showDelivery, setShowDelivery] = useState(false);
+  const [deliveryQty, setDeliveryQty] = useState('');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
 
   const { data: reservation, isLoading } = useQuery({
     queryKey: ['reservation', id],
@@ -83,11 +84,23 @@ export default function ReservationDetailPage() {
     onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to start'),
   });
 
+  const deliveryMutation = useMutation({
+    mutationFn: () => reservationsApi.addDelivery(id!, parseFloat(deliveryQty), deliveryNotes || undefined),
+    onSuccess: () => {
+      toast.success('Delivery logged');
+      setShowDelivery(false);
+      setDeliveryQty('');
+      setDeliveryNotes('');
+      queryClient.invalidateQueries({ queryKey: ['reservation', id] });
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to log delivery'),
+  });
+
   const completeMutation = useMutation({
-    mutationFn: () => reservationsApi.complete(id!, parseFloat(actualQty)),
+    mutationFn: () => reservationsApi.complete(id!),
     onSuccess: () => {
       toast.success('Reservation marked as completed');
-      setShowComplete(false);
       queryClient.invalidateQueries({ queryKey: ['reservation', id] });
       queryClient.invalidateQueries({ queryKey: ['reservations'] });
     },
@@ -100,7 +113,8 @@ export default function ReservationDetailPage() {
   const isPMOps = user?.role === 'PMHead' || user?.role === 'PMManager';
   const canAcknowledge = isPMOps && reservation.status === 'Submitted';
   const canStart = user?.role === 'PM' && reservation.requester_id === user.userId && reservation.status === 'Acknowledged';
-  const canComplete = isPMOps && reservation.status === 'Started';
+  const canAddDelivery = isPMOps && reservation.status === 'Started';
+  const canComplete = user?.role === 'PM' && reservation.requester_id === user.userId && reservation.status === 'Started';
   const canCancel = !['Completed', 'Cancelled', 'Rejected'].includes(reservation.status) && (
     (user?.role === 'PM' && reservation.requester_id === user.userId) || isPMOps
   );
@@ -111,6 +125,9 @@ export default function ReservationDetailPage() {
     Completed: 'text-emerald-700 bg-emerald-50', Rejected: 'text-red-700 bg-red-50',
     Cancelled: 'text-gray-600 bg-gray-100',
   };
+
+  const deliveries: any[] = reservation.deliveries || [];
+  const totalDelivered = deliveries.reduce((sum: number, d: any) => sum + parseFloat(d.quantity_m3), 0);
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -145,10 +162,16 @@ export default function ReservationDetailPage() {
               <Play className="w-4 h-4" /> Start
             </button>
           )}
+          {canAddDelivery && (
+            <button onClick={() => setShowDelivery(true)}
+              className="btn-primary flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700">
+              <Truck className="w-4 h-4" /> Add Delivery
+            </button>
+          )}
           {canComplete && (
-            <button onClick={() => { setActualQty(reservation.quantity_m3?.toString() || ''); setShowComplete(true); }}
+            <button onClick={() => completeMutation.mutate()} disabled={completeMutation.isPending}
               className="btn-primary flex items-center gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700">
-              <PackageCheck className="w-4 h-4" /> Mark as Completed
+              <PackageCheck className="w-4 h-4" /> {completeMutation.isPending ? 'Completing...' : 'Mark as Completed'}
             </button>
           )}
           {canCancel && (
@@ -166,7 +189,7 @@ export default function ReservationDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <Field label="Requested Quantity" value={`${reservation.quantity_m3} m³`} />
             {reservation.actual_quantity_m3 != null && (
-              <Field label="Actual Quantity" value={`${reservation.actual_quantity_m3} m³`} />
+              <Field label="Total Delivered" value={`${reservation.actual_quantity_m3} m³`} />
             )}
             <Field label="Grade" value={reservation.grade?.replace('_', ' ')} />
             <Field label="Pouring Type" value={reservation.pouring_type?.replace(/([A-Z])/g, ' $1').trim()} />
@@ -175,6 +198,44 @@ export default function ReservationDetailPage() {
             <Field label="Nature of Work" value={reservation.nature_of_work} />
           </div>
         </div>
+
+        {/* Delivery trips */}
+        {deliveries.length > 0 && (
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-gray-900">Delivery Trips</h3>
+              <span className="text-sm font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full">
+                {totalDelivered.toFixed(2)} m³ delivered
+              </span>
+            </div>
+            <div className="space-y-2">
+              {deliveries.map((d: any, i: number) => (
+                <div key={d.delivery_id} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-sm">
+                  <div>
+                    <span className="font-medium text-gray-700">Trip {i + 1}</span>
+                    <span className="text-gray-400 mx-2">·</span>
+                    <span className="text-gray-500">{d.delivered_by_name}</span>
+                    {d.notes && <span className="text-gray-400 ml-2 text-xs">— {d.notes}</span>}
+                  </div>
+                  <div className="text-right">
+                    <span className="font-semibold text-blue-700">{d.quantity_m3} m³</span>
+                    <p className="text-xs text-gray-400 font-mono">{(d.delivered_at ?? '').slice(0, 16)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 pt-3 border-t flex justify-between text-sm">
+              <span className="text-gray-500">Requested</span>
+              <span className="font-medium">{reservation.quantity_m3} m³</span>
+            </div>
+            <div className="flex justify-between text-sm mt-1">
+              <span className="text-gray-500">Remaining</span>
+              <span className={`font-semibold ${(reservation.quantity_m3 - totalDelivered) <= 0 ? 'text-emerald-600' : 'text-orange-600'}`}>
+                {Math.max(0, reservation.quantity_m3 - totalDelivered).toFixed(2)} m³
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="card p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Scheduling</h3>
@@ -237,29 +298,41 @@ export default function ReservationDetailPage() {
         )}
       </div>
 
-      {/* Complete modal */}
-      {showComplete && (
+      {/* Add Delivery modal */}
+      {showDelivery && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="font-semibold text-gray-900 mb-1">Mark as Completed</h3>
+            <h3 className="font-semibold text-gray-900 mb-1">Log Delivery Trip</h3>
             <p className="text-sm text-gray-500 mb-4">
-              Requested quantity: <span className="font-medium text-gray-700">{reservation.quantity_m3} m³</span>
+              Requested: <span className="font-medium text-gray-700">{reservation.quantity_m3} m³</span>
+              {totalDelivered > 0 && (
+                <> · Delivered so far: <span className="font-medium text-blue-700">{totalDelivered.toFixed(2)} m³</span></>
+              )}
             </p>
-            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Actual Quantity Serviced (m³)</label>
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Quantity Delivered (m³)</label>
             <input
               type="number" min="0.1" step="0.01"
+              className="input mt-1 mb-3"
+              value={deliveryQty}
+              onChange={(e) => setDeliveryQty(e.target.value)}
+              placeholder="e.g. 5"
+              autoFocus
+            />
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Notes (optional)</label>
+            <input
+              type="text"
               className="input mt-1"
-              value={actualQty}
-              onChange={(e) => setActualQty(e.target.value)}
-              placeholder="Enter actual quantity..."
+              value={deliveryNotes}
+              onChange={(e) => setDeliveryNotes(e.target.value)}
+              placeholder="e.g. First truck"
             />
             <div className="flex gap-3 mt-4">
-              <button className="btn-secondary flex-1" onClick={() => setShowComplete(false)}>Cancel</button>
+              <button className="btn-secondary flex-1" onClick={() => { setShowDelivery(false); setDeliveryQty(''); setDeliveryNotes(''); }}>Cancel</button>
               <button
-                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                disabled={!actualQty || parseFloat(actualQty) <= 0 || completeMutation.isPending}
-                onClick={() => completeMutation.mutate()}>
-                {completeMutation.isPending ? 'Saving...' : 'Confirm Complete'}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                disabled={!deliveryQty || parseFloat(deliveryQty) <= 0 || deliveryMutation.isPending}
+                onClick={() => deliveryMutation.mutate()}>
+                {deliveryMutation.isPending ? 'Saving...' : 'Log Delivery'}
               </button>
             </div>
           </div>

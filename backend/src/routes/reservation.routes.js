@@ -45,12 +45,15 @@ router.patch('/:id/propose-alternative',
   ctrl.proposeAlternative
 );
 
-// PATCH complete reservation (P&M Head or P&M Manager)
-router.patch('/:id/complete',
+// POST add delivery trip (P&M Head or P&M Manager)
+router.post('/:id/deliveries',
   requireRole('PMHead', 'PMManager'),
-  [body('actual_quantity_m3').isFloat({ min: 0.1 })],
-  ctrl.complete
+  [body('quantity_m3').isFloat({ min: 0.1 })],
+  ctrl.addDelivery
 );
+
+// PATCH complete reservation (PM — requester only, after deliveries logged)
+router.patch('/:id/complete', requireRole('PM'), ctrl.complete);
 
 // PATCH modify reservation (PM — before cutoff)
 router.patch('/:id',

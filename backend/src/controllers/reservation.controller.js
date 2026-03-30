@@ -104,7 +104,17 @@ exports.getById = asyncHandler(async (req, res) => {
     [req.params.id]
   );
   if (!rows[0]) throw new AppError('Reservation not found', 404);
-  res.json(rows[0]);
+
+  const { rows: deliveries } = await query(
+    `SELECT d.delivery_id, d.quantity_m3, d.notes, d.delivered_at, u.name AS delivered_by_name
+     FROM reservation_deliveries d
+     JOIN users u ON d.delivered_by = u.user_id
+     WHERE d.reservation_id = $1
+     ORDER BY d.delivered_at`,
+    [req.params.id]
+  );
+
+  res.json({ ...rows[0], deliveries });
 });
 
 // ── CREATE ────────────────────────────────────────────────────────────────────
@@ -396,34 +406,61 @@ exports.start = asyncHandler(async (req, res) => {
   res.json(rows[0]);
 });
 
-// ── COMPLETE ──────────────────────────────────────────────────────────────────
-exports.complete = asyncHandler(async (req, res) => {
+// ── ADD DELIVERY ──────────────────────────────────────────────────────────────
+exports.addDelivery = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { actual_quantity_m3 } = req.body;
+  const { quantity_m3, notes } = req.body;
   const user = req.user;
 
-  if (!actual_quantity_m3 || isNaN(actual_quantity_m3) || parseFloat(actual_quantity_m3) <= 0) {
-    throw new AppError('Valid actual quantity is required', 400);
+  if (!quantity_m3 || isNaN(quantity_m3) || parseFloat(quantity_m3) <= 0) {
+    throw new AppError('Valid quantity is required', 400);
   }
 
   const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
   if (!existing[0]) throw new AppError('Reservation not found', 404);
-  if (existing[0].status !== 'Started') {
-    throw new AppError('Only Started reservations can be marked as completed', 400);
-  }
+  if (existing[0].status !== 'Started') throw new AppError('Can only log deliveries for Started reservations', 400);
 
-  // PMManager can only complete their batching plant's packages
   if (user.role === 'PMManager') {
     const ids = await getPMManagerPackageIds(user.user_id);
     if (!ids.includes(existing[0].package_id)) throw new AppError('Not authorized for this package', 403);
   }
 
+  await withTransaction(async (client) => {
+    await client.query(
+      `INSERT INTO reservation_deliveries (reservation_id, quantity_m3, delivered_by, notes)
+       VALUES ($1, $2, $3, $4)`,
+      [id, parseFloat(quantity_m3), user.user_id, notes || null]
+    );
+    await client.query(
+      `UPDATE reservations SET actual_quantity_m3 = COALESCE(actual_quantity_m3, 0) + $1 WHERE reservation_id = $2`,
+      [parseFloat(quantity_m3), id]
+    );
+  });
+
+  const { rows: deliveries } = await query(
+    `SELECT d.delivery_id, d.quantity_m3, d.notes, d.delivered_at, u.name AS delivered_by_name
+     FROM reservation_deliveries d
+     JOIN users u ON d.delivered_by = u.user_id
+     WHERE d.reservation_id = $1
+     ORDER BY d.delivered_at`,
+    [id]
+  );
+  res.json(deliveries);
+});
+
+// ── COMPLETE ──────────────────────────────────────────────────────────────────
+exports.complete = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const user = req.user;
+
+  const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
+  if (!existing[0]) throw new AppError('Reservation not found', 404);
+  if (existing[0].status !== 'Started') throw new AppError('Only Started reservations can be marked as completed', 400);
+  if (existing[0].requester_id !== user.user_id) throw new AppError('Only the requesting PM can mark as complete', 403);
+
   const { rows } = await query(
-    `UPDATE reservations
-     SET status = 'Completed', actual_quantity_m3 = $1, completed_at = NOW()
-     WHERE reservation_id = $2
-     RETURNING *`,
-    [parseFloat(actual_quantity_m3), id]
+    `UPDATE reservations SET status = 'Completed', completed_at = NOW() WHERE reservation_id = $1 RETURNING *`,
+    [id]
   );
 
   await auditService.log(user.user_id, 'reservations', id, 'Update', existing[0], rows[0]);

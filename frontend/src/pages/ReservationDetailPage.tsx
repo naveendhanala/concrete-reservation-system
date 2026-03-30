@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reservationsApi } from '../api/index';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { ArrowLeft, CheckCircle, XCircle, PackageCheck, Play, Truck } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, PackageCheck, Play, Truck, Pencil } from 'lucide-react';
 import { useState } from 'react';
 
 function Field({ label, value }: { label: string; value: any }) {
@@ -43,6 +43,9 @@ export default function ReservationDetailPage() {
   const [showDelivery, setShowDelivery] = useState(false);
   const [deliveryQty, setDeliveryQty] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [showModify, setShowModify] = useState(false);
+  const [modifyQty, setModifyQty] = useState('');
+  const [modifyReason, setModifyReason] = useState('');
 
   const { data: reservation, isLoading } = useQuery({
     queryKey: ['reservation', id],
@@ -97,6 +100,19 @@ export default function ReservationDetailPage() {
     onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to log delivery'),
   });
 
+  const modifyMutation = useMutation({
+    mutationFn: () => reservationsApi.modify(id!, { quantity_m3: parseFloat(modifyQty), reason: modifyReason }),
+    onSuccess: () => {
+      toast.success('Reservation updated — re-submitted for acknowledgement');
+      setShowModify(false);
+      setModifyQty('');
+      setModifyReason('');
+      queryClient.invalidateQueries({ queryKey: ['reservation', id] });
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to modify'),
+  });
+
   const completeMutation = useMutation({
     mutationFn: () => reservationsApi.complete(id!),
     onSuccess: () => {
@@ -112,6 +128,7 @@ export default function ReservationDetailPage() {
 
   const isPMOps = user?.role === 'PMHead' || user?.role === 'PMManager';
   const canAcknowledge = isPMOps && reservation.status === 'Submitted';
+  const canModify = user?.role === 'PM' && reservation.requester_id === user.userId && !['Started', 'Completed', 'Cancelled', 'Rejected'].includes(reservation.status);
   const canStart = user?.role === 'PM' && reservation.requester_id === user.userId && reservation.status === 'Acknowledged';
   const canAddDelivery = isPMOps && reservation.status === 'Started';
   const canComplete = user?.role === 'PM' && reservation.requester_id === user.userId && reservation.status === 'Started';
@@ -154,6 +171,12 @@ export default function ReservationDetailPage() {
             <button onClick={() => acknowledgeMutation.mutate()} disabled={acknowledgeMutation.isPending}
               className="btn-primary flex items-center gap-1.5 text-xs">
               <CheckCircle className="w-4 h-4" /> Acknowledge
+            </button>
+          )}
+          {canModify && (
+            <button onClick={() => { setModifyQty(reservation.quantity_m3?.toString() || ''); setShowModify(true); }}
+              className="btn-secondary flex items-center gap-1.5 text-xs">
+              <Pencil className="w-4 h-4" /> Modify
             </button>
           )}
           {canStart && (
@@ -333,6 +356,39 @@ export default function ReservationDetailPage() {
                 disabled={!deliveryQty || parseFloat(deliveryQty) <= 0 || deliveryMutation.isPending}
                 onClick={() => deliveryMutation.mutate()}>
                 {deliveryMutation.isPending ? 'Saving...' : 'Log Delivery'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modify modal */}
+      {showModify && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="font-semibold text-gray-900 mb-1">Modify Reservation</h3>
+            <p className="text-sm text-gray-500 mb-4">Changing quantity will re-submit for P&M acknowledgement.</p>
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">New Quantity (m³)</label>
+            <input
+              type="number" min="0.1" max="50" step="0.01"
+              className="input mt-1 mb-3"
+              value={modifyQty}
+              onChange={(e) => setModifyQty(e.target.value)}
+            />
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Reason for change</label>
+            <textarea
+              className="input mt-1" rows={2}
+              placeholder="Why are you modifying this request?"
+              value={modifyReason}
+              onChange={(e) => setModifyReason(e.target.value)}
+            />
+            <div className="flex gap-3 mt-4">
+              <button className="btn-secondary flex-1" onClick={() => setShowModify(false)}>Cancel</button>
+              <button
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-gray-800 text-white hover:bg-gray-900 disabled:opacity-50"
+                disabled={!modifyQty || parseFloat(modifyQty) <= 0 || !modifyReason || modifyMutation.isPending}
+                onClick={() => modifyMutation.mutate()}>
+                {modifyMutation.isPending ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

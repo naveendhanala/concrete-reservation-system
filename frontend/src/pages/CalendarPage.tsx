@@ -14,12 +14,21 @@ export default function CalendarPage() {
     queryFn: () => slotsApi.getCalendar(from, to),
   });
 
-  // Group by date
+  // Group by date, then aggregate per time slot across all batching plants
   const byDate: Record<string, any[]> = {};
   slots.forEach((s: any) => {
     const d = (s.slot_date as string).slice(0, 10);
     if (!byDate[d]) byDate[d] = [];
-    byDate[d].push(s);
+    const timeKey = (s.start_time as string).slice(11, 16);
+    const existing = byDate[d].find((x: any) => x._timeKey === timeKey);
+    if (existing) {
+      existing.capacity_m3 = parseFloat(existing.capacity_m3) + parseFloat(s.capacity_m3);
+      existing.total_allocated = (existing.total_allocated || 0) + (s.total_allocated || 0);
+      existing.total_actual = (existing.total_actual || 0) + (s.total_actual || 0);
+      existing.utilization_pct = Math.round((existing.total_allocated / existing.capacity_m3) * 100);
+    } else {
+      byDate[d].push({ ...s, _timeKey: timeKey, capacity_m3: parseFloat(s.capacity_m3), total_allocated: s.total_allocated || 0, total_actual: s.total_actual || 0 });
+    }
   });
 
   const days = Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'));
@@ -60,7 +69,7 @@ export default function CalendarPage() {
                   const bar = util > 80 ? 'bg-red-400' : util > 50 ? 'bg-yellow-400' : 'bg-green-400';
                   return (
                     <div key={slot.slot_id} className={`border rounded p-1.5 text-xs ${bg}`}>
-                      <p className="font-medium">{(slot.start_time ?? '').slice(11, 16)}</p>
+                      <p className="font-medium">{(slot.start_time ?? '').slice(11, 16)} – {(slot.end_time ?? '').slice(11, 16)}</p>
                       <div className="h-1 bg-gray-200 rounded mt-1">
                         <div className={`h-1 rounded ${bar}`} style={{ width: `${Math.min(util, 100)}%` }} />
                       </div>

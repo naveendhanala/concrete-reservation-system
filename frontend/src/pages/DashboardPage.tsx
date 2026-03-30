@@ -128,6 +128,21 @@ function VPDashboard() {
   );
 }
 
+// Aggregate per-plant slots into one row per time slot
+function aggregateSlots(slots: any[]) {
+  const map: Record<string, any> = {};
+  (slots || []).forEach((s) => {
+    const key = (s.start_time ?? '').slice(11, 16);
+    if (!map[key]) {
+      map[key] = { ...s, booked_m3: parseFloat(s.booked_m3), capacity_m3: parseFloat(s.capacity_m3) };
+    } else {
+      map[key].booked_m3 += parseFloat(s.booked_m3);
+      map[key].capacity_m3 += parseFloat(s.capacity_m3);
+    }
+  });
+  return Object.values(map).sort((a, b) => a.start_time.localeCompare(b.start_time));
+}
+
 // ── P&M Head Dashboard ────────────────────────────────────────────────────────
 function PMHeadDashboard() {
   const { data, isLoading } = useQuery({ queryKey: ['dashboard-pmhead'], queryFn: dashboardApi.pmhead });
@@ -171,12 +186,12 @@ function PMHeadDashboard() {
           <Link to="/calendar" className="text-primary-600 text-sm hover:underline">Full Calendar</Link>
         </div>
         <div className="space-y-2 max-h-64 overflow-y-auto">
-          {data?.todaySlots?.map((slot: any) => {
-            const util = Math.round((parseFloat(slot.booked_m3) / parseFloat(slot.capacity_m3)) * 100);
+          {aggregateSlots(data?.todaySlots).map((slot: any) => {
+            const util = Math.round((slot.booked_m3 / slot.capacity_m3) * 100);
             return (
               <div key={slot.slot_id} className="flex items-center gap-3">
-                <span className="text-xs text-gray-500 w-16 flex-shrink-0">
-                  {(slot.start_time ?? '').slice(11, 16)}
+                <span className="text-xs text-gray-500 w-28 flex-shrink-0">
+                  {(slot.start_time ?? '').slice(11, 16)} – {(slot.end_time ?? '').slice(11, 16)}
                 </span>
                 <div className="flex-1 bg-gray-100 rounded-full h-2">
                   <div
@@ -184,7 +199,7 @@ function PMHeadDashboard() {
                     style={{ width: `${Math.min(util, 100)}%` }}
                   />
                 </div>
-                <span className="text-xs text-gray-500 w-20 text-right">{slot.booked_m3}/{slot.capacity_m3} m³</span>
+                <span className="text-xs text-gray-500 w-24 text-right">{slot.booked_m3.toFixed(0)}/{slot.capacity_m3.toFixed(0)} m³</span>
               </div>
             );
           })}
@@ -257,12 +272,12 @@ function PMManagerDashboard() {
           <Link to="/calendar" className="text-primary-600 text-sm hover:underline">Full Calendar</Link>
         </div>
         <div className="space-y-2 max-h-64 overflow-y-auto">
-          {data?.todaySlots?.map((slot: any) => {
-            const util = Math.round((parseFloat(slot.booked_m3) / parseFloat(slot.capacity_m3)) * 100);
+          {aggregateSlots(data?.todaySlots).map((slot: any) => {
+            const util = Math.round((slot.booked_m3 / slot.capacity_m3) * 100);
             return (
               <div key={slot.slot_id} className="flex items-center gap-3">
-                <span className="text-xs text-gray-500 w-16 flex-shrink-0">
-                  {(slot.start_time ?? '').slice(11, 16)}
+                <span className="text-xs text-gray-500 w-28 flex-shrink-0">
+                  {(slot.start_time ?? '').slice(11, 16)} – {(slot.end_time ?? '').slice(11, 16)}
                 </span>
                 <div className="flex-1 bg-gray-100 rounded-full h-2">
                   <div
@@ -270,7 +285,7 @@ function PMManagerDashboard() {
                     style={{ width: `${Math.min(util, 100)}%` }}
                   />
                 </div>
-                <span className="text-xs text-gray-500 w-20 text-right">{slot.booked_m3}/{slot.capacity_m3} m³</span>
+                <span className="text-xs text-gray-500 w-24 text-right">{slot.booked_m3.toFixed(0)}/{slot.capacity_m3.toFixed(0)} m³</span>
               </div>
             );
           })}

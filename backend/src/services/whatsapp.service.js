@@ -215,7 +215,7 @@ async function createReservation(fields, pmUser, packageId) {
     const { rows: resRows } = await client.query(
       `INSERT INTO reservations
          (requester_id, package_id, quantity_m3, grade, structure, chainage,
-          nature_of_work, pouring_type, site_engineer_id, contractor_id,
+          nature_of_work, pouring_type, engineer_user_id, contractor_id,
           priority_flag, status, requested_start, requested_end,
           is_split, rfi_id, batching_plant)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,

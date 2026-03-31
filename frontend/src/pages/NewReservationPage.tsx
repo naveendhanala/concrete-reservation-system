@@ -22,7 +22,7 @@ export default function NewReservationPage() {
     chainage: '',
     nature_of_work: '',
     pouring_type: 'BoomPlacer',
-    site_engineer_id: '',
+    engineer_user_id: '',
     contractor_id: '',
     rfi_id: '',
     batching_plant: '',
@@ -75,7 +75,7 @@ export default function NewReservationPage() {
     queryFn: () => usersApi.getContractors(contractorSearch),
   });
 
-  const selectedEngineer = engineers.find((e: any) => e.engineer_id === form.site_engineer_id);
+  const selectedEngineer = engineers.find((e: any) => e.engineer_id === form.engineer_user_id);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => reservationsApi.create(data),
@@ -99,7 +99,7 @@ export default function NewReservationPage() {
       chainage: form.chainage,
       nature_of_work: form.nature_of_work,
       pouring_type: form.pouring_type,
-      site_engineer_id: form.site_engineer_id,
+      engineer_user_id: form.engineer_user_id,
       contractor_id: form.contractor_id,
       rfi_id: form.rfi_id || undefined,
       batching_plant: form.batching_plant || undefined,
@@ -272,7 +272,7 @@ export default function NewReservationPage() {
         {/* Site Engineer */}
         <div>
           <label className="label">Site Engineer <span className="text-red-500">*</span></label>
-          <select className="input" value={form.site_engineer_id} onChange={set('site_engineer_id')} required>
+          <select className="input" value={form.engineer_user_id} onChange={set('engineer_user_id')} required>
             <option value="">Select engineer</option>
             {engineers.map((e: any) => (
               <option key={e.engineer_id} value={e.engineer_id}>{e.name}</option>

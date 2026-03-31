@@ -29,11 +29,15 @@ router.get('/my-packages', asyncHandler(async (req, res) => {
   res.json(rows);
 }));
 
-// Get site engineers by package
+// Get engineers (role=Engineer) by package from users table
 router.get('/engineers', asyncHandler(async (req, res) => {
   const { packageId } = req.query;
   const { rows } = await query(
-    `SELECT * FROM site_engineers WHERE package_id = $1 AND active_flag = TRUE ORDER BY name`,
+    `SELECT u.user_id AS engineer_id, u.name, u.phone AS contact, up.package_id
+     FROM users u
+     JOIN user_packages up ON u.user_id = up.user_id
+     WHERE up.package_id = $1 AND u.role = 'Engineer' AND u.active_flag = TRUE
+     ORDER BY u.name`,
     [packageId]
   );
   res.json(rows);
@@ -73,9 +77,10 @@ router.get('/', requireRole('Admin', 'PMHead', 'VP'), asyncHandler(async (req, r
       WHEN 'VP'          THEN 1
       WHEN 'ClusterHead' THEN 2
       WHEN 'PM'          THEN 3
-      WHEN 'PMHead'      THEN 4
-      WHEN 'PMManager'   THEN 5
-      ELSE 6
+      WHEN 'Engineer'    THEN 4
+      WHEN 'PMHead'      THEN 5
+      WHEN 'PMManager'   THEN 6
+      ELSE 7
     END, u.name`;
   const { rows } = await query(sql, params);
   res.json(rows);

@@ -59,11 +59,13 @@ exports.list = asyncHandler(async (req, res) => {
        r.*,
        u.name AS requester_name,
        pkg.package_name,
-       se.name AS site_engineer_name, se.contact AS site_engineer_contact,
+       COALESCE(eu.name, se.name) AS site_engineer_name,
+       COALESCE(eu.phone, se.contact) AS site_engineer_contact,
        c.name AS contractor_name
      FROM reservations r
      JOIN users u ON r.requester_id = u.user_id
      JOIN packages pkg ON r.package_id = pkg.package_id
+     LEFT JOIN users eu ON r.engineer_user_id = eu.user_id
      LEFT JOIN site_engineers se ON r.site_engineer_id = se.engineer_id
      LEFT JOIN contractors c ON r.contractor_id = c.contractor_id
      ${whereClause}
@@ -81,7 +83,8 @@ exports.getById = asyncHandler(async (req, res) => {
     `SELECT r.*,
        u.name AS requester_name,
        pkg.package_name,
-       se.name AS site_engineer_name, se.contact AS site_engineer_contact,
+       COALESCE(eu.name, se.name) AS site_engineer_name,
+       COALESCE(eu.phone, se.contact) AS site_engineer_contact,
        c.name AS contractor_name,
        ab.name AS acknowledged_by_name,
        vp.acted_at AS vp_approved_at,
@@ -90,6 +93,7 @@ exports.getById = asyncHandler(async (req, res) => {
      FROM reservations r
      JOIN users u ON r.requester_id = u.user_id
      JOIN packages pkg ON r.package_id = pkg.package_id
+     LEFT JOIN users eu ON r.engineer_user_id = eu.user_id
      LEFT JOIN site_engineers se ON r.site_engineer_id = se.engineer_id
      LEFT JOIN contractors c ON r.contractor_id = c.contractor_id
      LEFT JOIN users ab ON r.acknowledged_by = ab.user_id
@@ -125,7 +129,7 @@ exports.create = asyncHandler(async (req, res) => {
   const user = req.user;
   const {
     slotId, quantity_m3, grade, structure, chainage,
-    nature_of_work, pouring_type, site_engineer_id, contractor_id,
+    nature_of_work, pouring_type, engineer_user_id, contractor_id,
     rfi_id, batching_plant,
   } = req.body;
 
@@ -151,7 +155,7 @@ exports.create = asyncHandler(async (req, res) => {
     const { rows: resRows } = await client.query(
       `INSERT INTO reservations
          (requester_id, package_id, quantity_m3, grade, structure, chainage,
-          nature_of_work, pouring_type, site_engineer_id, contractor_id,
+          nature_of_work, pouring_type, engineer_user_id, contractor_id,
           priority_flag, status, requested_start, requested_end,
           is_split, rfi_id, batching_plant)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
@@ -161,7 +165,7 @@ exports.create = asyncHandler(async (req, res) => {
        RETURNING *`,
       [
         user.user_id, packageId, quantity_m3, grade, structure, chainage,
-        nature_of_work, pouring_type, site_engineer_id, contractor_id,
+        nature_of_work, pouring_type, engineer_user_id || null, contractor_id,
         isSameDay ? 'SameDay' : 'Normal',
         isSameDay ? 'PendingApproval' : 'Submitted',
         slot.start_time, allocation.length > 1

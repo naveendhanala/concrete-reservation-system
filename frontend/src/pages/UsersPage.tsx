@@ -5,20 +5,21 @@ import { usersApi, packagesApi } from '../api/index';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, X, Check, Eye, EyeOff } from 'lucide-react';
 
-const ROLES = ['PM', 'ClusterHead', 'VP', 'PMHead', 'PMManager', 'Admin'] as const;
+const ROLES = ['VP', 'ClusterHead', 'PM', 'Engineer', 'PMHead', 'PMManager', 'Admin'] as const;
 type Role = typeof ROLES[number];
 
 const roleColors: Record<string, string> = {
-  PM: 'bg-blue-100 text-blue-800',
-  ClusterHead: 'bg-purple-100 text-purple-800',
   VP: 'bg-orange-100 text-orange-800',
+  ClusterHead: 'bg-purple-100 text-purple-800',
+  PM: 'bg-blue-100 text-blue-800',
+  Engineer: 'bg-sky-100 text-sky-800',
   PMHead: 'bg-green-100 text-green-800',
   PMManager: 'bg-teal-100 text-teal-800',
   Admin: 'bg-red-100 text-red-800',
 };
 
 // Roles that can be assigned packages
-const PACKAGE_ROLES: Role[] = ['PM', 'ClusterHead'];
+const PACKAGE_ROLES: Role[] = ['PM', 'ClusterHead', 'Engineer'];
 // Roles that can be assigned batching plants
 const PLANT_ROLES: Role[] = ['PMManager', 'PMHead'];
 

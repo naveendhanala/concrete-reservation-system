@@ -12,7 +12,6 @@ import ApprovalsPage from './pages/ApprovalsPage';
 import CalendarPage from './pages/CalendarPage';
 import ReportsPage from './pages/ReportsPage';
 import UsersPage from './pages/UsersPage';
-import EngineersPage from './pages/EngineersPage';
 import SettingsPage from './pages/SettingsPage';
 
 import AppLayout from './components/layout/AppLayout';
@@ -50,9 +49,6 @@ export default function App() {
             <Route path="approvals" element={<ApprovalsPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="reports" element={<ReportsPage />} />
-            <Route path="engineers" element={
-              <RoleRoute roles={['PM', 'PMHead', 'Admin']}><EngineersPage /></RoleRoute>
-            } />
             <Route path="users" element={
               <RoleRoute roles={['Admin']}><UsersPage /></RoleRoute>
             } />

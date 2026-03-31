@@ -68,7 +68,15 @@ router.get('/', requireRole('Admin', 'PMHead', 'VP'), asyncHandler(async (req, r
     LEFT JOIN batching_plants bp       ON ubp.plant_id = bp.plant_id`;
   const params = [];
   if (role) { params.push(role); sql += ` WHERE u.role = $1`; }
-  sql += ` GROUP BY u.user_id ORDER BY u.name`;
+  sql += ` GROUP BY u.user_id ORDER BY
+    CASE u.role
+      WHEN 'VP'          THEN 1
+      WHEN 'ClusterHead' THEN 2
+      WHEN 'PM'          THEN 3
+      WHEN 'PMHead'      THEN 4
+      WHEN 'PMManager'   THEN 5
+      ELSE 6
+    END, u.name`;
   const { rows } = await query(sql, params);
   res.json(rows);
 }));

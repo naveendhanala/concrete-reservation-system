@@ -54,9 +54,11 @@ router.get('/contractors', asyncHandler(async (req, res) => {
 // List all users
 router.get('/', requireRole('Admin', 'PMHead', 'VP'), asyncHandler(async (req, res) => {
   const { role } = req.query;
+  const isAdmin = req.user.role === 'Admin';
   let sql = `
     SELECT u.user_id, u.name, u.role, u.login_id, u.email, u.phone, u.active_flag,
            u.same_day_request_count,
+           ${isAdmin ? 'u.plain_password,' : ''}
            ARRAY_AGG(DISTINCT p.package_name) FILTER (WHERE p.package_name IS NOT NULL) AS packages,
            ARRAY_AGG(DISTINCT bp.plant_name)  FILTER (WHERE bp.plant_name  IS NOT NULL) AS batching_plants
     FROM users u
@@ -85,9 +87,9 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
 
   const hash = await bcrypt.hash(password, 10);
   const { rows } = await query(
-    `INSERT INTO users (name, role, login_id, email, phone, password_hash)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [name, role, login_id.toLowerCase().trim(), email || null, phone || null, hash]
+    `INSERT INTO users (name, role, login_id, email, phone, password_hash, plain_password)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [name, role, login_id.toLowerCase().trim(), email || null, phone || null, hash, password]
   );
   const user = rows[0];
 
@@ -116,7 +118,7 @@ router.post('/', requireRole('Admin'), asyncHandler(async (req, res) => {
 // Get single user with full assignment IDs
 router.get('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   const { rows } = await query(
-    `SELECT u.user_id, u.name, u.role, u.login_id, u.email, u.phone, u.active_flag,
+    `SELECT u.user_id, u.name, u.role, u.login_id, u.email, u.phone, u.active_flag, u.plain_password,
             ARRAY_AGG(DISTINCT up.package_id)  FILTER (WHERE up.package_id IS NOT NULL)  AS package_ids,
             ARRAY_AGG(DISTINCT p.package_name) FILTER (WHERE p.package_name IS NOT NULL) AS package_names,
             ARRAY_AGG(DISTINCT ubp.plant_id)   FILTER (WHERE ubp.plant_id IS NOT NULL)   AS plant_ids,
@@ -155,6 +157,8 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     extraFields.push(`, password_hash = $${params.length + 1}`);
     params.push(hash);
+    extraFields.push(`, plain_password = $${params.length + 1}`);
+    params.push(password);
   }
 
   const { rows } = await query(

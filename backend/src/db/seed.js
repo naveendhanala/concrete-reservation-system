@@ -67,12 +67,12 @@ async function seed() {
     // ── Users ─────────────────────────────────────────────────
     const hash = (pw) => bcrypt.hashSync(pw, 10);
 
-    const adminId = await insertUser(client, { name: 'System Admin', role: 'Admin', loginId: 'admin', email: 'admin@concrete.com', hash: hash('Admin@123') });
-    const vpId = await insertUser(client, { name: 'Vice President', role: 'VP', loginId: 'vp', email: 'vp@concrete.com', hash: hash('VP@123') });
-    const pmHeadId = await insertUser(client, { name: 'P&M Head', role: 'PMHead', loginId: 'pmhead', email: 'pm_head@concrete.com', hash: hash('PMHead@123') });
+    const adminId = await insertUser(client, { name: 'System Admin', role: 'Admin', loginId: 'admin', email: 'admin@concrete.com', hash: hash('Admin@123'), plainPw: 'Admin@123' });
+    const vpId = await insertUser(client, { name: 'Vice President', role: 'VP', loginId: 'vp', email: 'vp@concrete.com', hash: hash('VP@123'), plainPw: 'VP@123' });
+    const pmHeadId = await insertUser(client, { name: 'P&M Head', role: 'PMHead', loginId: 'pmhead', email: 'pm_head@concrete.com', hash: hash('PMHead@123'), plainPw: 'PMHead@123' });
 
-    const ch1Id = await insertUser(client, { name: 'Cluster Head 1', role: 'ClusterHead', loginId: 'ch1', email: 'ch1@concrete.com', hash: hash('CH@123') });
-    const ch2Id = await insertUser(client, { name: 'Cluster Head 2', role: 'ClusterHead', loginId: 'ch2', email: 'ch2@concrete.com', hash: hash('CH@123') });
+    const ch1Id = await insertUser(client, { name: 'Cluster Head 1', role: 'ClusterHead', loginId: 'ch1', email: 'ch1@concrete.com', hash: hash('CH@123'), plainPw: 'CH@123' });
+    const ch2Id = await insertUser(client, { name: 'Cluster Head 2', role: 'ClusterHead', loginId: 'ch2', email: 'ch2@concrete.com', hash: hash('CH@123'), plainPw: 'CH@123' });
 
     // Assign packages to cluster heads (CH1: pkgs 1-8, CH2: pkgs 9-13)
     const ch1Packages = packages.slice(0, 8).map((n) => pkgIds[n]);
@@ -85,10 +85,10 @@ async function seed() {
     }
 
     // P&M Managers (one per batching plant — matches shifts.js plant names)
-    const pmm1Id = await insertUser(client, { name: 'P&M Manager - Camp-1 M3',    role: 'PMManager', loginId: 'pmm1', email: 'pmm1@concrete.com', hash: hash('PMM@123') });
-    const pmm2Id = await insertUser(client, { name: 'P&M Manager - Camp-2 M3',    role: 'PMManager', loginId: 'pmm2', email: 'pmm2@concrete.com', hash: hash('PMM@123') });
-    const pmm3Id = await insertUser(client, { name: 'P&M Manager - Camp-3 M1',    role: 'PMManager', loginId: 'pmm3', email: 'pmm3@concrete.com', hash: hash('PMM@123') });
-    const pmm4Id = await insertUser(client, { name: 'P&M Manager - Camp-1 CP-30', role: 'PMManager', loginId: 'pmm4', email: 'pmm4@concrete.com', hash: hash('PMM@123') });
+    const pmm1Id = await insertUser(client, { name: 'P&M Manager - Camp-1 M3',    role: 'PMManager', loginId: 'pmm1', email: 'pmm1@concrete.com', hash: hash('PMM@123'), plainPw: 'PMM@123' });
+    const pmm2Id = await insertUser(client, { name: 'P&M Manager - Camp-2 M3',    role: 'PMManager', loginId: 'pmm2', email: 'pmm2@concrete.com', hash: hash('PMM@123'), plainPw: 'PMM@123' });
+    const pmm3Id = await insertUser(client, { name: 'P&M Manager - Camp-3 M1',    role: 'PMManager', loginId: 'pmm3', email: 'pmm3@concrete.com', hash: hash('PMM@123'), plainPw: 'PMM@123' });
+    const pmm4Id = await insertUser(client, { name: 'P&M Manager - Camp-1 CP-30', role: 'PMManager', loginId: 'pmm4', email: 'pmm4@concrete.com', hash: hash('PMM@123'), plainPw: 'PMM@123' });
     await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm1Id, plantIds['Camp-1 M3']]);
     await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm2Id, plantIds['Camp-2 M3']]);
     await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm3Id, plantIds['Camp-3 M1']]);
@@ -102,6 +102,7 @@ async function seed() {
         loginId: `pm${i + 1}`,
         email: `pm${i + 1}@concrete.com`,
         hash: hash('PM@123'),
+        plainPw: 'PM@123',
       });
       await client.query('INSERT INTO user_packages (user_id, package_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmId, pkgIds[packages[i]]]);
     }
@@ -179,13 +180,13 @@ async function seed() {
   }
 }
 
-async function insertUser(client, { name, role, loginId, email, hash }) {
+async function insertUser(client, { name, role, loginId, email, hash, plainPw }) {
   const { rows } = await client.query(
-    `INSERT INTO users (name, role, login_id, email, password_hash)
-     VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (login_id) DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email
+    `INSERT INTO users (name, role, login_id, email, password_hash, plain_password)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (login_id) DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email, plain_password = EXCLUDED.plain_password
      RETURNING user_id`,
-    [name, role, loginId, email || null, hash]
+    [name, role, loginId, email || null, hash, plainPw || null]
   );
   return rows[0].user_id;
 }

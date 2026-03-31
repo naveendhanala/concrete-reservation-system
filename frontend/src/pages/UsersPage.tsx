@@ -243,6 +243,7 @@ export default function UsersPage() {
   const queryClient = useQueryClient();
   const [modalUser, setModalUser] = useState<any | null | 'new'>(null);
   const [roleFilter, setRoleFilter] = useState('');
+  const [visiblePw, setVisiblePw] = useState<Record<string, boolean>>({});
 
   const { data: allUsers = [], isLoading } = useQuery({
     queryKey: ['users'],
@@ -300,7 +301,7 @@ export default function UsersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {['Name', 'Login ID', 'Role', 'Packages / Plants', 'Status', 'Actions'].map((h) => (
+                  {['Name', 'Login ID', 'Password', 'Role', 'Packages / Plants', 'Status', 'Actions'].map((h) => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
@@ -310,6 +311,21 @@ export default function UsersPage() {
                   <tr key={u.user_id} className={`hover:bg-gray-50 ${!u.active_flag ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-3 font-medium text-gray-900">{u.name}</td>
                     <td className="px-4 py-3 font-mono text-gray-600 text-xs">{u.login_id}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-xs text-gray-700">
+                          {visiblePw[u.user_id] ? (u.plain_password || '—') : (u.plain_password ? '••••••••' : '—')}
+                        </span>
+                        {u.plain_password && (
+                          <button
+                            onClick={() => setVisiblePw((p) => ({ ...p, [u.user_id]: !p[u.user_id] }))}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            {visiblePw[u.user_id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleColors[u.role]}`}>{u.role}</span>
                     </td>
@@ -345,7 +361,7 @@ export default function UsersPage() {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-gray-400">No users found.</td>
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-400">No users found.</td>
                   </tr>
                 )}
               </tbody>

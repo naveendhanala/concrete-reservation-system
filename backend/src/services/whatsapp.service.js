@@ -136,26 +136,35 @@ async function findSlot(date, batchingPlant, slotName) {
   return rows[0] || null;
 }
 
-// ── Find site engineer by name (fuzzy, within package) ───────────────────────
+// ── Find engineer user by name (fuzzy, within package) ───────────────────────
 async function findSiteEngineer(name, packageId) {
   if (!name) return null;
   const { rows } = await query(
-    `SELECT * FROM site_engineers
-     WHERE name ILIKE $1 AND package_id = $2 AND active_flag = TRUE LIMIT 1`,
-    [`%${name}%`, packageId]
+    `SELECT u.user_id AS engineer_id, u.name, u.phone AS contact
+     FROM users u
+     JOIN user_packages up ON u.user_id = up.user_id
+     WHERE u.role = 'Engineer'
+       AND u.active_flag = TRUE
+       AND up.package_id = $1
+       AND u.name ILIKE $2
+     LIMIT 1`,
+    [packageId, `%${name}%`]
   );
   return rows[0] || null;
 }
 
-// ── Check if a phone number belongs to an engineer on a package ───────────────
+// ── Check if a phone number belongs to an engineer user on a package ──────────
 async function findEngineerByPhone(phone, packageId) {
   // Normalize: keep digits only, compare last 10 digits for format flexibility
   const digits = phone.replace(/\D/g, '').slice(-10);
   const { rows } = await query(
-    `SELECT * FROM site_engineers
-     WHERE package_id = $1
-       AND active_flag = TRUE
-       AND regexp_replace(contact, '[^0-9]', '', 'g') LIKE $2
+    `SELECT u.user_id AS engineer_id, u.name, u.phone AS contact
+     FROM users u
+     JOIN user_packages up ON u.user_id = up.user_id
+     WHERE u.role = 'Engineer'
+       AND u.active_flag = TRUE
+       AND up.package_id = $1
+       AND regexp_replace(COALESCE(u.phone, ''), '[^0-9]', '', 'g') LIKE $2
      LIMIT 1`,
     [packageId, `%${digits}`]
   );

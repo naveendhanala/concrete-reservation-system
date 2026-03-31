@@ -17,7 +17,8 @@ async function seed() {
     `);
 
     // ── Batching Plants ───────────────────────────────────────
-    const plants = ['Batching Plant 1', 'Batching Plant 2', 'Batching Plant 3'];
+    // Names match the physical plant names used in shifts.js
+    const plants = ['Camp-1 M3', 'Camp-2 M3', 'Camp-3 M1', 'Camp-1 CP-30'];
     const plantIds = {};
     for (const name of plants) {
       const { rows } = await client.query(
@@ -31,21 +32,24 @@ async function seed() {
     console.log('  ✓ Batching plants seeded');
 
     // ── Packages ──────────────────────────────────────────────
-    // Plant 1: Packages 1-5, Plant 2: Packages 6-9, Plant 3: Packages 10-13
+    // Camp-1 M3:    Packages 1-4  (E6, E8, E9, E13)
+    // Camp-2 M3:    Packages 5-8  (N7, N10, N11, N13)
+    // Camp-3 M1:    Packages 9-11 (N14, Zone 3A, Zone 4)
+    // Camp-1 CP-30: Packages 12-13 (Zone 5B, Zone 10)
     const packagePlantMap = [
-      { name: 'Package 1 - E6',       plant: 'Batching Plant 1' },
-      { name: 'Package 2 - E8',       plant: 'Batching Plant 1' },
-      { name: 'Package 3 - E9',       plant: 'Batching Plant 1' },
-      { name: 'Package 4 - E13',      plant: 'Batching Plant 1' },
-      { name: 'Package 5 - N7',       plant: 'Batching Plant 1' },
-      { name: 'Package 6 - N10',      plant: 'Batching Plant 2' },
-      { name: 'Package 7 - N11',      plant: 'Batching Plant 2' },
-      { name: 'Package 8 - N13',      plant: 'Batching Plant 2' },
-      { name: 'Package 9 - N14',      plant: 'Batching Plant 2' },
-      { name: 'Package 10 - Zone 3A', plant: 'Batching Plant 3' },
-      { name: 'Package 11 - Zone 4',  plant: 'Batching Plant 3' },
-      { name: 'Package 12 - Zone 5B', plant: 'Batching Plant 3' },
-      { name: 'Package 13 - Zone 10', plant: 'Batching Plant 3' },
+      { name: 'Package 1 - E6',       plant: 'Camp-1 M3'    },
+      { name: 'Package 2 - E8',       plant: 'Camp-1 M3'    },
+      { name: 'Package 3 - E9',       plant: 'Camp-1 M3'    },
+      { name: 'Package 4 - E13',      plant: 'Camp-1 M3'    },
+      { name: 'Package 5 - N7',       plant: 'Camp-2 M3'    },
+      { name: 'Package 6 - N10',      plant: 'Camp-2 M3'    },
+      { name: 'Package 7 - N11',      plant: 'Camp-2 M3'    },
+      { name: 'Package 8 - N13',      plant: 'Camp-2 M3'    },
+      { name: 'Package 9 - N14',      plant: 'Camp-3 M1'    },
+      { name: 'Package 10 - Zone 3A', plant: 'Camp-3 M1'    },
+      { name: 'Package 11 - Zone 4',  plant: 'Camp-3 M1'    },
+      { name: 'Package 12 - Zone 5B', plant: 'Camp-1 CP-30' },
+      { name: 'Package 13 - Zone 10', plant: 'Camp-1 CP-30' },
     ];
     const packages = packagePlantMap.map((p) => p.name);
     const pkgIds = {};
@@ -70,9 +74,9 @@ async function seed() {
     const ch1Id = await insertUser(client, { name: 'Cluster Head 1', role: 'ClusterHead', email: 'ch1@concrete.com', hash: hash('CH@123') });
     const ch2Id = await insertUser(client, { name: 'Cluster Head 2', role: 'ClusterHead', email: 'ch2@concrete.com', hash: hash('CH@123') });
 
-    // Assign packages to cluster heads
-    const ch1Packages = packages.slice(0, 7).map((n) => pkgIds[n]);
-    const ch2Packages = packages.slice(7).map((n) => pkgIds[n]);
+    // Assign packages to cluster heads (CH1: pkgs 1-8, CH2: pkgs 9-13)
+    const ch1Packages = packages.slice(0, 8).map((n) => pkgIds[n]);
+    const ch2Packages = packages.slice(8).map((n) => pkgIds[n]);
     for (const pkgId of ch1Packages) {
       await client.query('INSERT INTO user_packages (user_id, package_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [ch1Id, pkgId]);
     }
@@ -80,13 +84,15 @@ async function seed() {
       await client.query('INSERT INTO user_packages (user_id, package_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [ch2Id, pkgId]);
     }
 
-    // P&M Managers (one per batching plant)
-    const pmm1Id = await insertUser(client, { name: 'P&M Manager - Plant 1', role: 'PMManager', email: 'pmm1@concrete.com', hash: hash('PMM@123') });
-    const pmm2Id = await insertUser(client, { name: 'P&M Manager - Plant 2', role: 'PMManager', email: 'pmm2@concrete.com', hash: hash('PMM@123') });
-    const pmm3Id = await insertUser(client, { name: 'P&M Manager - Plant 3', role: 'PMManager', email: 'pmm3@concrete.com', hash: hash('PMM@123') });
-    await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm1Id, plantIds['Batching Plant 1']]);
-    await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm2Id, plantIds['Batching Plant 2']]);
-    await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm3Id, plantIds['Batching Plant 3']]);
+    // P&M Managers (one per batching plant — matches shifts.js plant names)
+    const pmm1Id = await insertUser(client, { name: 'P&M Manager - Camp-1 M3',    role: 'PMManager', email: 'pmm1@concrete.com', hash: hash('PMM@123') });
+    const pmm2Id = await insertUser(client, { name: 'P&M Manager - Camp-2 M3',    role: 'PMManager', email: 'pmm2@concrete.com', hash: hash('PMM@123') });
+    const pmm3Id = await insertUser(client, { name: 'P&M Manager - Camp-3 M1',    role: 'PMManager', email: 'pmm3@concrete.com', hash: hash('PMM@123') });
+    const pmm4Id = await insertUser(client, { name: 'P&M Manager - Camp-1 CP-30', role: 'PMManager', email: 'pmm4@concrete.com', hash: hash('PMM@123') });
+    await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm1Id, plantIds['Camp-1 M3']]);
+    await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm2Id, plantIds['Camp-2 M3']]);
+    await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm3Id, plantIds['Camp-3 M1']]);
+    await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm4Id, plantIds['Camp-1 CP-30']]);
 
     // Project Managers (one per package)
     for (let i = 0; i < packages.length; i++) {
@@ -157,9 +163,10 @@ async function seed() {
     console.log('  Admin:         admin@concrete.com   / Admin@123');
     console.log('  VP:            vp@concrete.com      / VP@123');
     console.log('  P&M Head:      pm_head@concrete.com / PMHead@123');
-    console.log('  P&M Manager 1: pmm1@concrete.com    / PMM@123  (Plant 1 - Pkgs 1-5)');
-    console.log('  P&M Manager 2: pmm2@concrete.com    / PMM@123  (Plant 2 - Pkgs 6-9)');
-    console.log('  P&M Manager 3: pmm3@concrete.com    / PMM@123  (Plant 3 - Pkgs 10-13)');
+    console.log('  P&M Manager 1: pmm1@concrete.com    / PMM@123  (Camp-1 M3)');
+    console.log('  P&M Manager 2: pmm2@concrete.com    / PMM@123  (Camp-2 M3)');
+    console.log('  P&M Manager 3: pmm3@concrete.com    / PMM@123  (Camp-3 M1)');
+    console.log('  P&M Manager 4: pmm4@concrete.com    / PMM@123  (Camp-1 CP-30)');
     console.log('  Cluster Head:  ch1@concrete.com     / CH@123');
     console.log('  PM 1-13:       pm1@concrete.com     / PM@123');
   } catch (err) {

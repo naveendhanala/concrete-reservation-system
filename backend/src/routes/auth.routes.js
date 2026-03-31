@@ -6,7 +6,7 @@ const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 
 router.post('/login',
-  [body('email').isEmail(), body('password').notEmpty()],
+  [body('login_id').notEmpty(), body('password').notEmpty()],
   login
 );
 router.post('/refresh', refreshToken);

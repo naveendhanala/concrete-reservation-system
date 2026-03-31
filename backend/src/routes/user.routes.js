@@ -151,7 +151,7 @@ router.get('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
 
 // Update user (Admin only) — no delete, use active_flag = false instead
 router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
-  const { name, login_id, email, phone, password, active_flag, packageIds, plantIds } = req.body;
+  const { name, role, login_id, email, phone, password, active_flag, packageIds, plantIds } = req.body;
 
   if (login_id !== undefined) {
     const { rows: existing } = await query(
@@ -163,7 +163,7 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
 
   const extraFields = [];
   const params = [
-    name, login_id?.toLowerCase().trim(), email, phone, active_flag, req.params.id,
+    name, role, login_id?.toLowerCase().trim(), email, phone, active_flag, req.params.id,
   ];
 
   if (password) {
@@ -177,12 +177,13 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   const { rows } = await query(
     `UPDATE users SET
        name        = COALESCE($1, name),
-       login_id    = COALESCE($2, login_id),
-       email       = COALESCE($3, email),
-       phone       = COALESCE($4, phone),
-       active_flag = COALESCE($5, active_flag)
+       role        = COALESCE($2, role),
+       login_id    = COALESCE($3, login_id),
+       email       = COALESCE($4, email),
+       phone       = COALESCE($5, phone),
+       active_flag = COALESCE($6, active_flag)
        ${extraFields.join('')}
-     WHERE user_id = $6 RETURNING *`,
+     WHERE user_id = $7 RETURNING *`,
     params
   );
   if (!rows[0]) throw new AppError('User not found', 404);

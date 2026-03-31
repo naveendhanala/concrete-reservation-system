@@ -243,9 +243,6 @@ export default function EngineersPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Engineers</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Manage the engineers authorized to raise and start reservations via WhatsApp.
-        </p>
       </div>
 
       {packages.length === 0 ? (

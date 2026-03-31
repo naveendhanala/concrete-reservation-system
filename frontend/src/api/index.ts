@@ -75,8 +75,14 @@ export const usersApi = {
   list: (params?: Record<string, any>) =>
     client.get('/users', { params }).then((r) => r.data),
 
+  getById: (id: string) =>
+    client.get(`/users/${id}`).then((r) => r.data),
+
   getMyPackages: () =>
     client.get('/users/my-packages').then((r) => r.data),
+
+  getPlants: () =>
+    client.get('/users/meta/plants').then((r) => r.data),
 
   getEngineers: (packageId: string) =>
     client.get('/users/engineers', { params: { packageId } }).then((r) => r.data),

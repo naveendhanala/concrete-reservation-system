@@ -67,12 +67,12 @@ async function seed() {
     // ── Users ─────────────────────────────────────────────────
     const hash = (pw) => bcrypt.hashSync(pw, 10);
 
-    const adminId = await insertUser(client, { name: 'System Admin', role: 'Admin', email: 'admin@concrete.com', hash: hash('Admin@123') });
-    const vpId = await insertUser(client, { name: 'Vice President', role: 'VP', email: 'vp@concrete.com', hash: hash('VP@123') });
-    const pmHeadId = await insertUser(client, { name: 'P&M Head', role: 'PMHead', email: 'pm_head@concrete.com', hash: hash('PMHead@123') });
+    const adminId = await insertUser(client, { name: 'System Admin', role: 'Admin', loginId: 'admin', email: 'admin@concrete.com', hash: hash('Admin@123') });
+    const vpId = await insertUser(client, { name: 'Vice President', role: 'VP', loginId: 'vp', email: 'vp@concrete.com', hash: hash('VP@123') });
+    const pmHeadId = await insertUser(client, { name: 'P&M Head', role: 'PMHead', loginId: 'pmhead', email: 'pm_head@concrete.com', hash: hash('PMHead@123') });
 
-    const ch1Id = await insertUser(client, { name: 'Cluster Head 1', role: 'ClusterHead', email: 'ch1@concrete.com', hash: hash('CH@123') });
-    const ch2Id = await insertUser(client, { name: 'Cluster Head 2', role: 'ClusterHead', email: 'ch2@concrete.com', hash: hash('CH@123') });
+    const ch1Id = await insertUser(client, { name: 'Cluster Head 1', role: 'ClusterHead', loginId: 'ch1', email: 'ch1@concrete.com', hash: hash('CH@123') });
+    const ch2Id = await insertUser(client, { name: 'Cluster Head 2', role: 'ClusterHead', loginId: 'ch2', email: 'ch2@concrete.com', hash: hash('CH@123') });
 
     // Assign packages to cluster heads (CH1: pkgs 1-8, CH2: pkgs 9-13)
     const ch1Packages = packages.slice(0, 8).map((n) => pkgIds[n]);
@@ -85,10 +85,10 @@ async function seed() {
     }
 
     // P&M Managers (one per batching plant — matches shifts.js plant names)
-    const pmm1Id = await insertUser(client, { name: 'P&M Manager - Camp-1 M3',    role: 'PMManager', email: 'pmm1@concrete.com', hash: hash('PMM@123') });
-    const pmm2Id = await insertUser(client, { name: 'P&M Manager - Camp-2 M3',    role: 'PMManager', email: 'pmm2@concrete.com', hash: hash('PMM@123') });
-    const pmm3Id = await insertUser(client, { name: 'P&M Manager - Camp-3 M1',    role: 'PMManager', email: 'pmm3@concrete.com', hash: hash('PMM@123') });
-    const pmm4Id = await insertUser(client, { name: 'P&M Manager - Camp-1 CP-30', role: 'PMManager', email: 'pmm4@concrete.com', hash: hash('PMM@123') });
+    const pmm1Id = await insertUser(client, { name: 'P&M Manager - Camp-1 M3',    role: 'PMManager', loginId: 'pmm1', email: 'pmm1@concrete.com', hash: hash('PMM@123') });
+    const pmm2Id = await insertUser(client, { name: 'P&M Manager - Camp-2 M3',    role: 'PMManager', loginId: 'pmm2', email: 'pmm2@concrete.com', hash: hash('PMM@123') });
+    const pmm3Id = await insertUser(client, { name: 'P&M Manager - Camp-3 M1',    role: 'PMManager', loginId: 'pmm3', email: 'pmm3@concrete.com', hash: hash('PMM@123') });
+    const pmm4Id = await insertUser(client, { name: 'P&M Manager - Camp-1 CP-30', role: 'PMManager', loginId: 'pmm4', email: 'pmm4@concrete.com', hash: hash('PMM@123') });
     await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm1Id, plantIds['Camp-1 M3']]);
     await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm2Id, plantIds['Camp-2 M3']]);
     await client.query('INSERT INTO user_batching_plants (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [pmm3Id, plantIds['Camp-3 M1']]);
@@ -99,6 +99,7 @@ async function seed() {
       const pmId = await insertUser(client, {
         name: `Project Manager ${i + 1}`,
         role: 'PM',
+        loginId: `pm${i + 1}`,
         email: `pm${i + 1}@concrete.com`,
         hash: hash('PM@123'),
       });
@@ -159,16 +160,16 @@ async function seed() {
 
     await client.query('COMMIT');
     console.log('\n✅ Database seeded successfully!');
-    console.log('\nDefault credentials:');
-    console.log('  Admin:         admin@concrete.com   / Admin@123');
-    console.log('  VP:            vp@concrete.com      / VP@123');
-    console.log('  P&M Head:      pm_head@concrete.com / PMHead@123');
-    console.log('  P&M Manager 1: pmm1@concrete.com    / PMM@123  (Camp-1 M3)');
-    console.log('  P&M Manager 2: pmm2@concrete.com    / PMM@123  (Camp-2 M3)');
-    console.log('  P&M Manager 3: pmm3@concrete.com    / PMM@123  (Camp-3 M1)');
-    console.log('  P&M Manager 4: pmm4@concrete.com    / PMM@123  (Camp-1 CP-30)');
-    console.log('  Cluster Head:  ch1@concrete.com     / CH@123');
-    console.log('  PM 1-13:       pm1@concrete.com     / PM@123');
+    console.log('\nDefault credentials (Login ID / Password):');
+    console.log('  Admin:         admin  / Admin@123');
+    console.log('  VP:            vp     / VP@123');
+    console.log('  P&M Head:      pmhead / PMHead@123');
+    console.log('  P&M Manager 1: pmm1   / PMM@123  (Camp-1 M3)');
+    console.log('  P&M Manager 2: pmm2   / PMM@123  (Camp-2 M3)');
+    console.log('  P&M Manager 3: pmm3   / PMM@123  (Camp-3 M1)');
+    console.log('  P&M Manager 4: pmm4   / PMM@123  (Camp-1 CP-30)');
+    console.log('  Cluster Head:  ch1    / CH@123');
+    console.log('  PM 1-13:       pm1    / PM@123');
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -178,13 +179,13 @@ async function seed() {
   }
 }
 
-async function insertUser(client, { name, role, email, hash }) {
+async function insertUser(client, { name, role, loginId, email, hash }) {
   const { rows } = await client.query(
-    `INSERT INTO users (name, role, email, password_hash)
-     VALUES ($1, $2, $3, $4)
-     ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
+    `INSERT INTO users (name, role, login_id, email, password_hash)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (login_id) DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email
      RETURNING user_id`,
-    [name, role, email, hash]
+    [name, role, loginId, email || null, hash]
   );
   return rows[0].user_id;
 }

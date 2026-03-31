@@ -19,19 +19,20 @@ const generateTokens = (userId, role) => {
 };
 
 exports.login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const { login_id, password } = req.body;
+  if (!login_id || !password) throw new AppError('Login ID and password are required', 400);
 
   const { rows } = await query(
-    `SELECT u.user_id, u.name, u.role, u.email, u.phone, u.password_hash, u.active_flag,
+    `SELECT u.user_id, u.name, u.role, u.login_id, u.email, u.phone, u.password_hash, u.active_flag,
             u.same_day_request_count,
             ARRAY_AGG(DISTINCT up.package_id) FILTER (WHERE up.package_id IS NOT NULL) AS package_ids,
             ARRAY_AGG(DISTINCT p.package_name) FILTER (WHERE p.package_name IS NOT NULL) AS package_names
      FROM users u
      LEFT JOIN user_packages up ON u.user_id = up.user_id
      LEFT JOIN packages p ON up.package_id = p.package_id
-     WHERE u.email = $1
+     WHERE u.login_id = $1
      GROUP BY u.user_id`,
-    [email.toLowerCase()]
+    [login_id.toLowerCase().trim()]
   );
 
   const user = rows[0];
@@ -44,11 +45,7 @@ exports.login = asyncHandler(async (req, res) => {
 
   const { accessToken, refreshToken } = generateTokens(user.user_id, user.role);
 
-  // Store refresh token
-  await query(
-    `UPDATE users SET updated_at = NOW() WHERE user_id = $1`,
-    [user.user_id]
-  );
+  await query(`UPDATE users SET updated_at = NOW() WHERE user_id = $1`, [user.user_id]);
 
   res.json({
     accessToken,
@@ -57,6 +54,7 @@ exports.login = asyncHandler(async (req, res) => {
       userId: user.user_id,
       name: user.name,
       role: user.role,
+      loginId: user.login_id,
       email: user.email,
       phone: user.phone,
       packageIds: user.package_ids || [],
@@ -79,13 +77,12 @@ exports.refreshToken = asyncHandler(async (req, res) => {
 });
 
 exports.logout = asyncHandler(async (req, res) => {
-  // Stateless JWT — client discards token
   res.json({ message: 'Logged out successfully' });
 });
 
 exports.getMe = asyncHandler(async (req, res) => {
   const { rows } = await query(
-    `SELECT u.user_id, u.name, u.role, u.email, u.phone, u.same_day_request_count,
+    `SELECT u.user_id, u.name, u.role, u.login_id, u.email, u.phone, u.same_day_request_count,
             ARRAY_AGG(DISTINCT up.package_id) FILTER (WHERE up.package_id IS NOT NULL) AS package_ids,
             ARRAY_AGG(DISTINCT p.package_name) FILTER (WHERE p.package_name IS NOT NULL) AS package_names
      FROM users u
@@ -97,8 +94,9 @@ exports.getMe = asyncHandler(async (req, res) => {
   );
   const u = rows[0];
   res.json({
-    userId: u.user_id, name: u.name, role: u.role, email: u.email,
-    phone: u.phone, packageIds: u.package_ids || [],
+    userId: u.user_id, name: u.name, role: u.role,
+    loginId: u.login_id, email: u.email, phone: u.phone,
+    packageIds: u.package_ids || [],
     packageNames: u.package_names || [],
     sameDayRequestCount: u.same_day_request_count,
   });

@@ -7,7 +7,8 @@ interface User {
   userId: string;
   name: string;
   role: 'PM' | 'ClusterHead' | 'VP' | 'PMHead' | 'PMManager' | 'Admin';
-  email: string;
+  loginId: string;
+  email?: string;
   phone?: string;
   packageIds: string[];
   packageNames: string[];
@@ -17,7 +18,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (loginId: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -40,9 +41,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (loginId: string, password: string) => {
     queryClient.clear();
-    const { accessToken, refreshToken, user } = await authApi.login(email, password);
+    const { accessToken, refreshToken, user } = await authApi.login(loginId, password);
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     setUser(user);

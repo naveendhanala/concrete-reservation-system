@@ -1,8 +1,8 @@
 // src/api/auth.api.ts
 import client from './client';
 export const authApi = {
-  login: async (email: string, password: string) => {
-    const { data } = await client.post('/auth/login', { email, password });
+  login: async (login_id: string, password: string) => {
+    const { data } = await client.post('/auth/login', { login_id, password });
     return data;
   },
   getMe: async () => {

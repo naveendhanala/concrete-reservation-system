@@ -31,6 +31,7 @@ export default function NewReservationPage() {
   });
   const [contractorSearch, setContractorSearch] = useState('');
   const [splitWarning, setSplitWarning] = useState<string | null>(null);
+
   const [isSameDay, setIsSameDay] = useState(false);
 
   // Fetch today + tomorrow with their predefined shifts, filtered by selected plant
@@ -70,10 +71,14 @@ export default function NewReservationPage() {
     enabled: !!user?.packageIds?.[0],
   });
 
-  const { data: contractors = [] } = useQuery({
-    queryKey: ['contractors', contractorSearch],
-    queryFn: () => usersApi.getContractors(contractorSearch),
+  const { data: allContractors = [] } = useQuery({
+    queryKey: ['contractors'],
+    queryFn: () => usersApi.getContractors(''),
   });
+
+  const contractors = contractorSearch
+    ? allContractors.filter((c: any) => c.name.toLowerCase().includes(contractorSearch.toLowerCase()))
+    : allContractors;
 
   const selectedEngineer = engineers.find((e: any) => e.engineer_id === form.engineer_user_id);
 

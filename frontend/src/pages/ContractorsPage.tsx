@@ -24,7 +24,7 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
     onSuccess: () => {
       toast.success('Contractor updated');
       setEditing(false);
-      queryClient.invalidateQueries({ queryKey: ['all-contractors'] });
+      queryClient.invalidateQueries({ queryKey: ['contractors'] });
     },
     onError: (err: any) => toast.error(err.response?.data?.error || 'Update failed'),
   });
@@ -112,7 +112,7 @@ function AddContractorRow({ onDone }: { onDone: () => void }) {
     mutationFn: () => usersApi.createContractor({ name, contact: contact || null }),
     onSuccess: () => {
       toast.success('Contractor added');
-      queryClient.invalidateQueries({ queryKey: ['all-contractors'] });
+      queryClient.invalidateQueries({ queryKey: ['contractors'] });
       onDone();
     },
     onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to add'),
@@ -161,7 +161,7 @@ export default function ContractorsPage() {
   const [search, setSearch] = useState('');
 
   const { data: contractors = [], isLoading } = useQuery({
-    queryKey: ['all-contractors'],
+    queryKey: ['contractors'],
     queryFn: () => usersApi.getContractors(''),
   });
 

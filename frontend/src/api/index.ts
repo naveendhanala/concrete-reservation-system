@@ -99,6 +99,12 @@ export const usersApi = {
   getContractors: (search?: string) =>
     client.get('/users/contractors', { params: { search } }).then((r) => r.data),
 
+  createContractor: (data: Record<string, any>) =>
+    client.post('/users/contractors', data).then((r) => r.data),
+
+  updateContractor: (id: string, data: Record<string, any>) =>
+    client.patch(`/users/contractors/${id}`, data).then((r) => r.data),
+
   create: (data: Record<string, any>) =>
     client.post('/users', data).then((r) => r.data),
 

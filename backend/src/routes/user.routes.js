@@ -211,6 +211,32 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   res.json(rows[0]);
 }));
 
+// ── Contractor mutations (Admin only) ─────────────────────────────────────
+
+router.post('/contractors', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const { name, contact } = req.body;
+  if (!name) throw new AppError('name is required', 400);
+  const { rows } = await query(
+    `INSERT INTO contractors (name, contact) VALUES ($1, $2) RETURNING *`,
+    [name, contact || null]
+  );
+  res.status(201).json(rows[0]);
+}));
+
+router.patch('/contractors/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const { name, contact, active_flag } = req.body;
+  const { rows } = await query(
+    `UPDATE contractors
+     SET name        = COALESCE($1, name),
+         contact     = COALESCE($2, contact),
+         active_flag = COALESCE($3, active_flag)
+     WHERE contractor_id = $4 RETURNING *`,
+    [name || null, contact || null, active_flag ?? null, req.params.id]
+  );
+  if (!rows[0]) throw new AppError('Contractor not found', 404);
+  res.json(rows[0]);
+}));
+
 // ── Engineer mutations ─────────────────────────────────────────────────────
 
 router.post('/engineers', requireRole('PM', 'PMHead', 'Admin'), asyncHandler(async (req, res) => {

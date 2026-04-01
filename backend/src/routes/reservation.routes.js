@@ -23,7 +23,7 @@ router.post('/',
     body('chainage').notEmpty(),
     body('nature_of_work').notEmpty(),
     body('pouring_type').isIn(['BoomPlacer', 'ConcretePump', 'Chute']),
-    body('site_engineer_id').isUUID(),
+    body('engineer_user_id').optional({ nullable: true }).isUUID(),
     body('contractor_id').isUUID(),
   ],
   ctrl.create

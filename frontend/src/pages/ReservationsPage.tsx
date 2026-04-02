@@ -20,10 +20,11 @@ function StatusBadge({ status }: { status: string }) {
 export default function ReservationsPage() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
+  const isPM = user?.role === 'PM';
   const [filters, setFilters] = useState({
     status: searchParams.get('status') || '',
     date: searchParams.get('date') || '',
-    packageId: '',
+    packageId: isPM ? (user?.packageIds?.[0] || '') : '',
     page: 1,
   });
 
@@ -63,7 +64,7 @@ export default function ReservationsPage() {
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        <select className="input" value={filters.packageId}
+        <select className="input" value={filters.packageId} disabled={isPM}
           onChange={(e) => setFilters((f) => ({ ...f, packageId: e.target.value, page: 1 }))}>
           <option value="">All Packages</option>
           {packages.map((p: any) => (
@@ -73,8 +74,8 @@ export default function ReservationsPage() {
         <input type="date" className="input"
           value={filters.date}
           onChange={(e) => setFilters((f) => ({ ...f, date: e.target.value, page: 1 }))} />
-        {(filters.status || filters.date || filters.packageId) && (
-          <button className="btn-secondary text-xs" onClick={() => setFilters({ status: '', date: '', packageId: '', page: 1 })}>
+        {(filters.status || filters.date || (!isPM && filters.packageId)) && (
+          <button className="btn-secondary text-xs" onClick={() => setFilters((f) => ({ status: '', date: '', packageId: isPM ? f.packageId : '', page: 1 }))}>
             Clear
           </button>
         )}

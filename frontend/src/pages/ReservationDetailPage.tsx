@@ -210,6 +210,8 @@ export default function ReservationDetailPage() {
         <div className="card p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Concrete Details</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <Field label="Batching Plant" value={reservation.batching_plant} />
+            <Field label="RFI ID" value={reservation.rfi_id} />
             <Field label="Requested Quantity" value={`${reservation.quantity_m3} m³`} />
             {reservation.actual_quantity_m3 != null && (
               <Field label="Total Delivered" value={`${reservation.actual_quantity_m3} m³`} />

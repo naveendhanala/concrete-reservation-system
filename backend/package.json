@@ -9,6 +9,7 @@
     "db:migrate": "node src/db/migrate.js",
     "db:seed": "node src/db/seed.js",
     "db:reset": "node src/db/migrate.js --reset && node src/db/migrate.js && node src/db/seed.js",
+    "db:clear-reservations": "node src/db/clear-reservations.js",
     "test": "jest --runInBand",
     "test:watch": "jest --watch"
   },

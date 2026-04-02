@@ -2,21 +2,30 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportsApi } from '../api/index';
+import { useAuth } from '../context/AuthContext';
 
 export default function ReportsPage() {
+  const { user } = useAuth();
+  const isPM = user?.role === 'PM';
+
   const [range, setRange] = useState({
     from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0],
   });
 
+  // PM: always filter by their own package (sent to backend); other roles: unscoped
+  const packageId = isPM ? user?.packageIds[0] : undefined;
+
+  const apiParams = { ...range, ...(packageId ? { package_id: packageId } : {}) };
+
   const { data: slaData = [], isLoading } = useQuery({
-    queryKey: ['report-sla', range],
-    queryFn: () => reportsApi.sla(range),
+    queryKey: ['report-sla', apiParams],
+    queryFn: () => reportsApi.sla(apiParams),
   });
 
   const { data: packageData = [] } = useQuery({
-    queryKey: ['report-packages', range],
-    queryFn: () => reportsApi.packages(range),
+    queryKey: ['report-packages', apiParams],
+    queryFn: () => reportsApi.packages(apiParams),
   });
 
   const totals = slaData.reduce((acc: any, row: any) => ({
@@ -45,6 +54,14 @@ export default function ReportsPage() {
           <input type="date" className="input" value={range.to}
             onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} />
         </div>
+        {isPM && (
+          <div>
+            <label className="label">Package</label>
+            <div className="input bg-gray-50 text-gray-700 cursor-not-allowed select-none">
+              {user?.packageNames[0] ?? '—'}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Summary KPIs */}

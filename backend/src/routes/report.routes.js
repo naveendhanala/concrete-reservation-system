@@ -5,9 +5,22 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { requireRole } = require('../middleware/auth');
 const router = express.Router();
 
+// Resolve the effective package_id filter: PMs are always scoped to their own package.
+async function resolvePackageId(req) {
+  if (req.user.role === 'PM') {
+    const { rows } = await query(
+      'SELECT package_id FROM user_packages WHERE user_id = $1 LIMIT 1',
+      [req.user.user_id]
+    );
+    return rows[0]?.package_id || null;
+  }
+  return req.query.package_id || null;
+}
+
 // SLA performance report
 router.get('/sla', asyncHandler(async (req, res) => {
   const { from, to } = req.query;
+  const packageId = await resolvePackageId(req);
   const { rows } = await query(
     `SELECT
        DATE(r.requested_start) AS date,
@@ -20,9 +33,10 @@ router.get('/sla', asyncHandler(async (req, res) => {
      FROM reservations r
      WHERE ($1::date IS NULL OR DATE(r.requested_start) >= $1)
        AND ($2::date IS NULL OR DATE(r.requested_start) <= $2)
+       AND ($3::uuid IS NULL OR r.package_id = $3)
      GROUP BY DATE(r.requested_start)
      ORDER BY date`,
-    [from || null, to || null]
+    [from || null, to || null, packageId]
   );
   res.json(rows);
 }));
@@ -50,6 +64,7 @@ router.get('/utilization', asyncHandler(async (req, res) => {
 // Package-wise quantity summary
 router.get('/packages', asyncHandler(async (req, res) => {
   const { from, to } = req.query;
+  const packageId = await resolvePackageId(req);
   const { rows } = await query(
     `SELECT pkg.package_name,
        COUNT(r.reservation_id) AS total,
@@ -61,9 +76,10 @@ router.get('/packages', asyncHandler(async (req, res) => {
      LEFT JOIN reservations r ON pkg.package_id = r.package_id
        AND ($1::date IS NULL OR DATE(r.requested_start) >= $1)
        AND ($2::date IS NULL OR DATE(r.requested_start) <= $2)
+     WHERE ($3::uuid IS NULL OR pkg.package_id = $3)
      GROUP BY pkg.package_id, pkg.package_name
      ORDER BY total_requested_m3 DESC`,
-    [from || null, to || null]
+    [from || null, to || null, packageId]
   );
   res.json(rows);
 }));

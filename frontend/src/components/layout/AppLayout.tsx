@@ -14,7 +14,7 @@ const navItems = [
   { to: '/reservations', icon: ClipboardList, label: 'Reservations', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin'] },
   { to: '/approvals', icon: CheckSquare, label: 'Approvals', roles: ['VP','ClusterHead','PMHead'] },
   { to: '/calendar', icon: Calendar, label: 'Capacity Calendar', roles: ['PMHead','PMManager','VP','Admin'] },
-  { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['VP','ClusterHead','PMHead','PMManager','Admin'] },
+  { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['PM','VP','ClusterHead','PMHead','PMManager','Admin'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['Admin'] },
   { to: '/contractors', icon: Building2, label: 'Contractors', roles: ['Admin'] },
   { to: '/settings', icon: Settings, label: 'Settings', roles: ['Admin'] },

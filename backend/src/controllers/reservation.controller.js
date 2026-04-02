@@ -6,16 +6,16 @@ const notificationService = require('../services/notification.service');
 const auditService = require('../services/audit.service');
 const { validationResult } = require('express-validator');
 
-// ── HELPER: get package IDs for a PMManager (via their batching plant) ────────
-async function getPMManagerPackageIds(userId) {
+// ── HELPER: get plant names for a PMManager ───────────────────────────────────
+async function getPMManagerPlantNames(userId) {
   const { rows } = await query(
-    `SELECT p.package_id
-     FROM packages p
-     JOIN user_batching_plants ubp ON p.batching_plant_id = ubp.plant_id
+    `SELECT bp.plant_name
+     FROM batching_plants bp
+     JOIN user_batching_plants ubp ON bp.plant_id = ubp.plant_id
      WHERE ubp.user_id = $1`,
     [userId]
   );
-  return rows.map((r) => r.package_id);
+  return rows.map((r) => r.plant_name);
 }
 
 // ── LIST ──────────────────────────────────────────────────────────────────────
@@ -38,10 +38,10 @@ exports.list = asyncHandler(async (req, res) => {
     params.push(ids);
     whereClause += ` AND r.package_id = ANY($${params.length})`;
   } else if (user.role === 'PMManager') {
-    const ids = await getPMManagerPackageIds(user.user_id);
-    if (ids.length === 0) return res.json({ data: [], total: 0 });
-    params.push(ids);
-    whereClause += ` AND r.package_id = ANY($${params.length})`;
+    const plantNames = await getPMManagerPlantNames(user.user_id);
+    if (plantNames.length === 0) return res.json({ data: [], total: 0 });
+    params.push(plantNames);
+    whereClause += ` AND r.batching_plant = ANY($${params.length})`;
   }
 
   if (status) { params.push(status); whereClause += ` AND r.status = $${params.length}`; }

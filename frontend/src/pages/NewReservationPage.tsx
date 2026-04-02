@@ -1,5 +1,5 @@
 // src/pages/NewReservationPage.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { reservationsApi, slotsApi, usersApi } from '../api/index';
@@ -30,6 +30,8 @@ export default function NewReservationPage() {
     selectedDate: '',
   });
   const [contractorSearch, setContractorSearch] = useState('');
+  const [contractorOpen, setContractorOpen] = useState(false);
+  const contractorRef = useRef<HTMLDivElement>(null);
   const [splitWarning, setSplitWarning] = useState<string | null>(null);
 
   const [isSameDay, setIsSameDay] = useState(false);
@@ -76,9 +78,20 @@ export default function NewReservationPage() {
     queryFn: () => usersApi.getContractors(''),
   });
 
-  const contractors = contractorSearch
+  const filteredContractors = contractorSearch
     ? allContractors.filter((c: any) => c.name.toLowerCase().includes(contractorSearch.toLowerCase()))
     : allContractors;
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (contractorRef.current && !contractorRef.current.contains(e.target as Node)) {
+        setContractorOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
 
   const selectedEngineer = engineers.find((e: any) => e.engineer_id === form.engineer_user_id);
 
@@ -289,16 +302,56 @@ export default function NewReservationPage() {
         </div>
 
         {/* Contractor */}
-        <div>
+        <div ref={contractorRef} className="relative">
           <label className="label">Contractor <span className="text-red-500">*</span></label>
-          <input type="text" className="input mb-1" placeholder="Search contractor..."
-            value={contractorSearch} onChange={(e) => setContractorSearch(e.target.value)} />
-          <select className="input" value={form.contractor_id} onChange={set('contractor_id')} required>
-            <option value="">Select contractor</option>
-            {contractors.map((c: any) => (
-              <option key={c.contractor_id} value={c.contractor_id}>{c.name}</option>
-            ))}
-          </select>
+          <input
+            type="text"
+            className="input"
+            placeholder="Type to search contractor..."
+            value={contractorSearch}
+            onChange={(e) => {
+              setContractorSearch(e.target.value);
+              setForm((f) => ({ ...f, contractor_id: '' }));
+              setContractorOpen(true);
+            }}
+            onFocus={() => setContractorOpen(true)}
+            required={!form.contractor_id}
+            readOnly={!!form.contractor_id}
+          />
+          {/* hidden native input to satisfy form required validation */}
+          <input type="hidden" name="contractor_id" value={form.contractor_id} required />
+          {contractorOpen && filteredContractors.length > 0 && !form.contractor_id && (
+            <ul className="absolute z-50 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+              {filteredContractors.map((c: any) => (
+                <li
+                  key={c.contractor_id}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setForm((f) => ({ ...f, contractor_id: c.contractor_id }));
+                    setContractorSearch(c.name);
+                    setContractorOpen(false);
+                  }}
+                  className="px-4 py-2.5 text-sm text-gray-800 hover:bg-primary-50 hover:text-primary-700 cursor-pointer"
+                >
+                  {c.name}
+                </li>
+              ))}
+            </ul>
+          )}
+          {form.contractor_id && (
+            <button
+              type="button"
+              onClick={() => {
+                setForm((f) => ({ ...f, contractor_id: '' }));
+                setContractorSearch('');
+                setContractorOpen(false);
+              }}
+              className="absolute right-3 top-[2.1rem] text-gray-400 hover:text-gray-600 text-lg leading-none"
+              title="Clear"
+            >
+              ×
+            </button>
+          )}
         </div>
 
         {/* Actions */}

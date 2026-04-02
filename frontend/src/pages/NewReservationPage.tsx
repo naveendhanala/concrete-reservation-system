@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { AlertCircle, Info } from 'lucide-react';
 
-const GRADES = ['M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M45'];
+const GRADES = ['M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M45'];
 const POURING_TYPES = ['BoomPlacer', 'ConcretePump', 'Chute'];
 const BATCHING_PLANTS = ['Camp-1 M3', 'Camp-2 M3', 'Camp-3 M1', 'Camp-1 CP-30'];
 

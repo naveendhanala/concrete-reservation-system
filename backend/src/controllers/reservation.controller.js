@@ -220,10 +220,10 @@ exports.acknowledge = asyncHandler(async (req, res) => {
   if (!existing[0]) throw new AppError('Reservation not found', 404);
   if (existing[0].status !== 'Submitted') throw new AppError('Only Submitted reservations can be acknowledged', 400);
 
-  // PMManager can only acknowledge their batching plant's packages
+  // PMManager can only acknowledge reservations for their batching plant
   if (user.role === 'PMManager') {
-    const ids = await getPMManagerPackageIds(user.user_id);
-    if (!ids.includes(existing[0].package_id)) throw new AppError('Not authorized for this package', 403);
+    const plantNames = await getPMManagerPlantNames(user.user_id);
+    if (!plantNames.includes(existing[0].batching_plant)) throw new AppError('Not authorized for this batching plant', 403);
   }
 
   const { rows } = await query(
@@ -351,8 +351,8 @@ exports.cancel = asyncHandler(async (req, res) => {
 
   let canCancel = user.role === 'PMHead' || existing[0].requester_id === user.user_id;
   if (user.role === 'PMManager') {
-    const ids = await getPMManagerPackageIds(user.user_id);
-    canCancel = ids.includes(existing[0].package_id);
+    const plantNames = await getPMManagerPlantNames(user.user_id);
+    canCancel = plantNames.includes(existing[0].batching_plant);
   }
   if (!canCancel) throw new AppError('Not authorized to cancel', 403);
 
@@ -425,8 +425,8 @@ exports.addDelivery = asyncHandler(async (req, res) => {
   if (existing[0].status !== 'Started') throw new AppError('Can only log deliveries for Started reservations', 400);
 
   if (user.role === 'PMManager') {
-    const ids = await getPMManagerPackageIds(user.user_id);
-    if (!ids.includes(existing[0].package_id)) throw new AppError('Not authorized for this package', 403);
+    const plantNames = await getPMManagerPlantNames(user.user_id);
+    if (!plantNames.includes(existing[0].batching_plant)) throw new AppError('Not authorized for this batching plant', 403);
   }
 
   await withTransaction(async (client) => {

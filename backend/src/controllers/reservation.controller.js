@@ -452,6 +452,57 @@ exports.addDelivery = asyncHandler(async (req, res) => {
   res.json(deliveries);
 });
 
+// ── EDIT DELIVERY ─────────────────────────────────────────────────────────────
+exports.editDelivery = asyncHandler(async (req, res) => {
+  const { id, deliveryId } = req.params;
+  const { quantity_m3, notes } = req.body;
+  const user = req.user;
+
+  if (!quantity_m3 || isNaN(quantity_m3) || parseFloat(quantity_m3) <= 0) {
+    throw new AppError('Valid quantity is required', 400);
+  }
+
+  const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
+  if (!existing[0]) throw new AppError('Reservation not found', 404);
+  if (existing[0].status !== 'Started') throw new AppError('Can only edit deliveries for Started reservations', 400);
+
+  if (user.role === 'PMManager') {
+    const plantNames = await getPMManagerPlantNames(user.user_id);
+    if (!plantNames.includes(existing[0].batching_plant)) throw new AppError('Not authorized for this batching plant', 403);
+  }
+
+  const { rows: delivery } = await query(
+    'SELECT * FROM reservation_deliveries WHERE delivery_id = $1 AND reservation_id = $2',
+    [deliveryId, id]
+  );
+  if (!delivery[0]) throw new AppError('Delivery not found', 404);
+
+  const oldQty = parseFloat(delivery[0].quantity_m3);
+  const newQty = parseFloat(quantity_m3);
+  const diff = newQty - oldQty;
+
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE reservation_deliveries SET quantity_m3 = $1, notes = $2 WHERE delivery_id = $3`,
+      [newQty, notes || null, deliveryId]
+    );
+    await client.query(
+      `UPDATE reservations SET actual_quantity_m3 = COALESCE(actual_quantity_m3, 0) + $1 WHERE reservation_id = $2`,
+      [diff, id]
+    );
+  });
+
+  const { rows: deliveries } = await query(
+    `SELECT d.delivery_id, d.quantity_m3, d.notes, d.delivered_at, u.name AS delivered_by_name
+     FROM reservation_deliveries d
+     JOIN users u ON d.delivered_by = u.user_id
+     WHERE d.reservation_id = $1
+     ORDER BY d.delivered_at`,
+    [id]
+  );
+  res.json(deliveries);
+});
+
 // ── COMPLETE ──────────────────────────────────────────────────────────────────
 exports.complete = asyncHandler(async (req, res) => {
   const { id } = req.params;

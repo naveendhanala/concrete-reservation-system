@@ -52,6 +52,13 @@ router.post('/:id/deliveries',
   ctrl.addDelivery
 );
 
+// PATCH edit delivery trip (P&M Head or P&M Manager)
+router.patch('/:id/deliveries/:deliveryId',
+  requireRole('PMHead', 'PMManager'),
+  [body('quantity_m3').isFloat({ min: 0.1 })],
+  ctrl.editDelivery
+);
+
 // PATCH complete reservation (PM — requester only, after deliveries logged)
 router.patch('/:id/complete', requireRole('PM'), ctrl.complete);
 

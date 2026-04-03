@@ -43,6 +43,7 @@ export default function ReservationDetailPage() {
   const [showDelivery, setShowDelivery] = useState(false);
   const [deliveryQty, setDeliveryQty] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [editingDelivery, setEditingDelivery] = useState<{ id: string; qty: string; notes: string } | null>(null);
   const [showModify, setShowModify] = useState(false);
   const [modifyQty, setModifyQty] = useState('');
   const [modifyReason, setModifyReason] = useState('');
@@ -98,6 +99,19 @@ export default function ReservationDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['reservations'] });
     },
     onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to log delivery'),
+  });
+
+  const editDeliveryMutation = useMutation({
+    mutationFn: () => reservationsApi.editDelivery(
+      id!, editingDelivery!.id, parseFloat(editingDelivery!.qty), editingDelivery!.notes || undefined
+    ),
+    onSuccess: () => {
+      toast.success('Delivery updated');
+      setEditingDelivery(null);
+      queryClient.invalidateQueries({ queryKey: ['reservation', id] });
+      queryClient.invalidateQueries({ queryKey: ['reservations'] });
+    },
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to update delivery'),
   });
 
   const modifyMutation = useMutation({
@@ -242,9 +256,20 @@ export default function ReservationDetailPage() {
                     <span className="text-gray-500">{d.delivered_by_name}</span>
                     {d.notes && <span className="text-gray-400 ml-2 text-xs">— {d.notes}</span>}
                   </div>
-                  <div className="text-right">
-                    <span className="font-semibold text-blue-700">{d.quantity_m3} m³</span>
-                    <p className="text-xs text-gray-400 font-mono">{(d.delivered_at ?? '').slice(0, 16)}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="font-semibold text-blue-700">{d.quantity_m3} m³</span>
+                      <p className="text-xs text-gray-400 font-mono">{(d.delivered_at ?? '').slice(0, 16)}</p>
+                    </div>
+                    {canAddDelivery && (
+                      <button
+                        onClick={() => setEditingDelivery({ id: d.delivery_id, qty: String(d.quantity_m3), notes: d.notes || '' })}
+                        className="text-gray-400 hover:text-primary-600 p-1 rounded"
+                        title="Edit trip"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -391,6 +416,41 @@ export default function ReservationDetailPage() {
                 disabled={!modifyQty || parseFloat(modifyQty) <= 0 || !modifyReason || modifyMutation.isPending}
                 onClick={() => modifyMutation.mutate()}>
                 {modifyMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Delivery modal */}
+      {editingDelivery && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="font-semibold text-gray-900 mb-1">Edit Delivery Trip</h3>
+            <p className="text-sm text-gray-500 mb-4">Update the quantity or notes for this trip.</p>
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Quantity Delivered (m³)</label>
+            <input
+              type="number" min="0.1" step="0.01"
+              className="input mt-1 mb-3"
+              value={editingDelivery.qty}
+              onChange={(e) => setEditingDelivery((d) => d && ({ ...d, qty: e.target.value }))}
+              autoFocus
+            />
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Notes (optional)</label>
+            <input
+              type="text"
+              className="input mt-1"
+              value={editingDelivery.notes}
+              onChange={(e) => setEditingDelivery((d) => d && ({ ...d, notes: e.target.value }))}
+              placeholder="e.g. First truck"
+            />
+            <div className="flex gap-3 mt-4">
+              <button className="btn-secondary flex-1" onClick={() => setEditingDelivery(null)}>Cancel</button>
+              <button
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                disabled={!editingDelivery.qty || parseFloat(editingDelivery.qty) <= 0 || editDeliveryMutation.isPending}
+                onClick={() => editDeliveryMutation.mutate()}>
+                {editDeliveryMutation.isPending ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

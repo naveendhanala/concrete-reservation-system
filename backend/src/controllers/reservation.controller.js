@@ -407,6 +407,7 @@ exports.start = asyncHandler(async (req, res) => {
   );
 
   await auditService.log(user.user_id, 'reservations', id, 'Update', existing[0], rows[0]);
+  await notificationService.notifyReservationStarted(rows[0]);
   res.json(rows[0]);
 });
 

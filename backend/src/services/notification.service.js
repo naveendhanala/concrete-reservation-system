@@ -33,22 +33,35 @@ async function createInAppNotification(userId, title, message, reservationId = n
 }
 
 async function notifyReservationCreated(reservation, requester) {
+  const notifTitle = 'New Concrete Reservation';
+  const notifMessage = `${requester.name} submitted reservation ${reservation.reservation_number} for ${reservation.quantity_m3} m³`;
+  const emailSubject = `New Reservation: ${reservation.reservation_number}`;
+  const emailBody = `<p>A new concrete reservation has been submitted.</p>
+       <p><b>Reservation:</b> ${reservation.reservation_number}</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Batching Plant:</b> ${reservation.batching_plant || 'N/A'}</p>`;
+
   // Notify P&M Head
   const { rows: pmHeads } = await query(`SELECT user_id, email FROM users WHERE role = 'PMHead'`);
   for (const pmh of pmHeads) {
-    await createInAppNotification(
-      pmh.user_id,
-      'New Concrete Reservation',
-      `${requester.name} submitted reservation ${reservation.reservation_number} for ${reservation.quantity_m3} m³`,
-      reservation.reservation_id
+    await createInAppNotification(pmh.user_id, notifTitle, notifMessage, reservation.reservation_id);
+    await sendEmail(pmh.email, emailSubject, emailBody);
+  }
+
+  // Notify P&M Managers assigned to this batching plant
+  if (reservation.batching_plant) {
+    const { rows: managers } = await query(
+      `SELECT u.user_id, u.email
+       FROM users u
+       JOIN user_batching_plants ubp ON u.user_id = ubp.user_id
+       JOIN batching_plants bp ON ubp.plant_id = bp.plant_id
+       WHERE u.role = 'PMManager' AND bp.plant_name = $1`,
+      [reservation.batching_plant]
     );
-    await sendEmail(
-      pmh.email,
-      `New Reservation: ${reservation.reservation_number}`,
-      `<p>A new concrete reservation has been submitted.</p>
-       <p><b>Reservation:</b> ${reservation.reservation_number}</p>
-       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>`
-    );
+    for (const mgr of managers) {
+      await createInAppNotification(mgr.user_id, notifTitle, notifMessage, reservation.reservation_id);
+      await sendEmail(mgr.email, emailSubject, emailBody);
+    }
   }
 }
 
@@ -85,6 +98,33 @@ async function notifySlotProposed(reservation) {
   );
 }
 
+async function notifyReservationStarted(reservation) {
+  if (!reservation.batching_plant) return;
+  const { rows: managers } = await query(
+    `SELECT u.user_id, u.email
+     FROM users u
+     JOIN user_batching_plants ubp ON u.user_id = ubp.user_id
+     JOIN batching_plants bp ON ubp.plant_id = bp.plant_id
+     WHERE u.role = 'PMManager' AND bp.plant_name = $1`,
+    [reservation.batching_plant]
+  );
+  for (const mgr of managers) {
+    await createInAppNotification(
+      mgr.user_id,
+      'Reservation Started',
+      `Reservation ${reservation.reservation_number} has been started and is ready for concrete delivery.`,
+      reservation.reservation_id
+    );
+    await sendEmail(
+      mgr.email,
+      `Reservation Started: ${reservation.reservation_number}`,
+      `<p>Reservation <b>${reservation.reservation_number}</b> has been started.</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Batching Plant:</b> ${reservation.batching_plant}</p>`
+    );
+  }
+}
+
 async function notifyApprovalActioned(approval, action) {
   const { rows: res } = await query(
     `SELECT r.requester_id, r.reservation_number, u.email
@@ -105,6 +145,7 @@ async function notifyApprovalActioned(approval, action) {
 module.exports = {
   notifyReservationCreated,
   notifyReservationAcknowledged,
+  notifyReservationStarted,
   notifySlotProposed,
   notifyApprovalActioned,
   createInAppNotification,

@@ -124,7 +124,10 @@ exports.getById = asyncHandler(async (req, res) => {
 // ── CREATE ────────────────────────────────────────────────────────────────────
 exports.create = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
-  if (!errors.isEmpty()) throw new AppError(errors.array()[0].msg, 400);
+  if (!errors.isEmpty()) {
+    const e = errors.array()[0];
+    throw new AppError(`Validation failed on field "${e.path}": ${e.msg} (received: ${JSON.stringify(e.value)})`, 400);
+  }
 
   const user = req.user;
   const {

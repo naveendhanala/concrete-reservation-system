@@ -1,5 +1,5 @@
 // src/hooks/usePushNotifications.ts
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import client from '../api/client';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
@@ -14,40 +14,61 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   return buffer;
 }
 
+async function doSubscribe() {
+  const registration = await navigator.serviceWorker.ready;
+  const existing = await registration.pushManager.getSubscription();
+
+  if (existing) {
+    await client.post('/push/subscribe', existing.toJSON());
+    return 'already-subscribed';
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return 'denied';
+
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+  });
+
+  await client.post('/push/subscribe', subscription.toJSON());
+  return 'subscribed';
+}
+
+// Returns whether the user should be prompted to enable notifications
+// and an enablePush() function to call on a user gesture (button tap)
 export function usePushNotifications(isLoggedIn: boolean) {
+  const [showBanner, setShowBanner] = useState(false);
+
   useEffect(() => {
     if (!isLoggedIn) return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     if (!VAPID_PUBLIC_KEY) return;
 
-    async function subscribe() {
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        const existing = await registration.pushManager.getSubscription();
-
-        // Already subscribed — sync with backend
-        if (existing) {
-          await client.post('/push/subscribe', existing.toJSON());
-          return;
-        }
-
-        // Request permission
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') return;
-
-        // Subscribe
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-        });
-
-        await client.post('/push/subscribe', subscription.toJSON());
-      } catch (err) {
-        // Non-fatal — push is an enhancement, not a requirement
-        console.warn('Push subscription failed:', err);
-      }
+    // If already granted, just sync the subscription silently
+    if (Notification.permission === 'granted') {
+      doSubscribe().catch(() => {});
+      return;
     }
 
-    subscribe();
+    // If not yet decided, show the banner asking the user to enable
+    if (Notification.permission === 'default') {
+      setShowBanner(true);
+    }
   }, [isLoggedIn]);
+
+  async function enablePush() {
+    setShowBanner(false);
+    try {
+      await doSubscribe();
+    } catch (err) {
+      console.warn('Push subscription failed:', err);
+    }
+  }
+
+  function dismissBanner() {
+    setShowBanner(false);
+  }
+
+  return { showBanner, enablePush, dismissBanner };
 }

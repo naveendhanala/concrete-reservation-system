@@ -21,8 +21,26 @@ import AppLayout from './components/layout/AppLayout';
 
 function AppWithPush({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  usePushNotifications(!!user);
-  return <>{children}<InstallPrompt /></>;
+  const { showBanner, enablePush, dismissBanner } = usePushNotifications(!!user);
+  return (
+    <>
+      {children}
+      {showBanner && (
+        <div className="fixed bottom-20 left-4 right-4 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4 flex items-start gap-3">
+          <div className="text-2xl">🔔</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">Enable notifications</p>
+            <p className="text-xs text-gray-500 mt-0.5">Get notified about reservation updates</p>
+            <div className="flex gap-2 mt-3">
+              <button className="btn-primary text-xs" onClick={enablePush}>Enable</button>
+              <button className="btn-secondary text-xs" onClick={dismissBanner}>Not now</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <InstallPrompt />
+    </>
+  );
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

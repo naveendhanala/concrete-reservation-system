@@ -1,5 +1,6 @@
 // src/hooks/usePushNotifications.ts
 import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import client from '../api/client';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string;
@@ -15,7 +16,11 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
 }
 
 async function doSubscribe() {
-  const registration = await navigator.serviceWorker.ready;
+  const swReady = new Promise<ServiceWorkerRegistration>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Service worker did not become ready in time')), 10000);
+    navigator.serviceWorker.ready.then((reg) => { clearTimeout(timer); resolve(reg); });
+  });
+  const registration = await swReady;
   const existing = await registration.pushManager.getSubscription();
 
   if (existing) {
@@ -60,8 +65,12 @@ export function usePushNotifications(isLoggedIn: boolean) {
   async function enablePush() {
     setShowBanner(false);
     try {
-      await doSubscribe();
-    } catch (err) {
+      const result = await doSubscribe();
+      if (result === 'denied') {
+        toast.error('Notification permission denied');
+      }
+    } catch (err: any) {
+      toast.error('Push setup failed: ' + (err?.message ?? 'unknown error'));
       console.warn('Push subscription failed:', err);
     }
   }

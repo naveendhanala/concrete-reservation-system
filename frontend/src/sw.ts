@@ -4,13 +4,21 @@ declare const self: ServiceWorkerGlobalScope;
 
 // Push notification received
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() ?? {};
-  const title: string = data.title ?? 'ConcreteMS';
+  let title = 'ConcreteMS';
+  let body = '';
+  let url = '/';
+  try {
+    const data = event.data?.json() ?? {};
+    title = data.title ?? title;
+    body = data.body ?? body;
+    url = data.url ?? url;
+  } catch (_) {}
+
   const options: NotificationOptions = {
-    body: data.body ?? '',
+    body,
     icon: '/icons/icon.svg',
     badge: '/icons/badge-72.png.svg',
-    data: { url: data.url ?? '/' },
+    data: { url },
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });

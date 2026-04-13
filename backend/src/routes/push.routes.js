@@ -35,6 +35,19 @@ router.delete('/subscribe', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Check subscription status for current user
+router.get('/status', asyncHandler(async (req, res) => {
+  const { rows } = await query(
+    'SELECT endpoint, created_at FROM push_subscriptions WHERE user_id = $1',
+    [req.user.user_id]
+  );
+  res.json({
+    user_id: req.user.user_id,
+    subscriptions: rows.length,
+    endpoints: rows.map((r) => ({ endpoint: r.endpoint?.slice(0, 60) + '...', created_at: r.created_at })),
+  });
+}));
+
 // Send a test push notification to the current user
 router.post('/test', asyncHandler(async (req, res) => {
   const webpush = require('web-push');

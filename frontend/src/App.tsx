@@ -1,5 +1,5 @@
 // src/App.tsx
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { usePushNotifications } from './hooks/usePushNotifications';
@@ -51,7 +51,7 @@ function AppWithPush({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
-      <InstallPrompt />
+      {useLocation().pathname === '/login' && <InstallPrompt />}
     </>
   );
 }

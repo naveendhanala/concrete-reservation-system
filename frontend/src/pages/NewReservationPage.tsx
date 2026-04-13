@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { AlertCircle, Info } from 'lucide-react';
 
-const GRADES = ['M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M45'];
+const GRADES = ['M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M40', 'M45'];
 const POURING_TYPES = ['BoomPlacer', 'ConcretePump', 'Chute', 'Manual'];
 const BATCHING_PLANTS = ['Camp-1 M3', 'Camp-2 M3', 'Camp-3 M1', 'Camp-1 CP-30'];
 
@@ -247,7 +247,7 @@ export default function NewReservationPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Quantity (m³) <span className="text-red-500">*</span></label>
-            <input type="number" className="input" placeholder="e.g. 30" step="0.5" min="0.5" max="50"
+            <input type="number" className="input" placeholder="e.g. 30" step="0.01" min="0.01" max="50"
               value={form.quantity_m3} onChange={set('quantity_m3')} required />
           </div>
           <div>

@@ -91,7 +91,7 @@ export default function ReservationsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Reservation #', 'Package', 'Date/Time', 'Requested Qty', 'Actual Qty', 'Grade', 'Status', 'Completed At'].map((h) => (
+                {['Reservation #', 'Package', 'Date/Time', 'Requested Qty', 'Actual Qty', 'Grade', 'Batching Plant', 'Status', 'Completed At'].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -114,6 +114,7 @@ export default function ReservationsPage() {
                   <td className="px-4 py-3 font-medium">{r.quantity_m3} m³</td>
                   <td className="px-4 py-3 font-medium">{r.actual_quantity_m3 != null ? `${r.actual_quantity_m3} m³` : '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{r.grade?.replace('_', ' ')}</td>
+                  <td className="px-4 py-3 text-gray-600">{r.batching_plant || '—'}</td>
                   <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
                   <td className="px-4 py-3 text-gray-600">
                     {r.completed_at

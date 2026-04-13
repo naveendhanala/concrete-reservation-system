@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#2563eb"/>
+  <!-- Hard hat shape -->
+  <g transform="translate(256,256)">
+    <!-- Brim -->
+    <rect x="-140" y="60" width="280" height="28" rx="14" fill="white"/>
+    <!-- Dome -->
+    <path d="M-110,60 Q-110,-80 0,-90 Q110,-80 110,60 Z" fill="white"/>
+    <!-- Stripe -->
+    <rect x="-30" y="-88" width="60" height="148" rx="8" fill="#2563eb" opacity="0.3"/>
+    <!-- Center ridge -->
+    <rect x="-8" y="-90" width="16" height="150" rx="8" fill="#1d4ed8" opacity="0.5"/>
+  </g>
+</svg>

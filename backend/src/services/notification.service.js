@@ -1,7 +1,17 @@
 // src/services/notification.service.js
 const nodemailer = require('nodemailer');
+const webpush = require('web-push');
 const { query } = require('../config/db');
 const logger = require('../config/logger');
+
+// Configure VAPID (only when keys are present)
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_EMAIL || 'mailto:admin@concrete-system.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -32,6 +42,37 @@ async function createInAppNotification(userId, title, message, reservationId = n
   }
 }
 
+async function sendPushToUser(userId, title, body, url = '/') {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+  try {
+    const { rows: subs } = await query(
+      'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = $1',
+      [userId]
+    );
+    const payload = JSON.stringify({ title, body, url });
+    await Promise.allSettled(
+      subs.map((sub) =>
+        webpush
+          .sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            payload
+          )
+          .catch(async (err) => {
+            // 410 Gone = subscription expired, clean it up
+            if (err.statusCode === 410) {
+              await query(
+                'DELETE FROM push_subscriptions WHERE endpoint = $1',
+                [sub.endpoint]
+              );
+            }
+          })
+      )
+    );
+  } catch (err) {
+    logger.error('Push notification failed:', { userId, error: err.message });
+  }
+}
+
 async function notifyReservationCreated(reservation, requester) {
   const notifTitle = 'New Concrete Reservation';
   const notifMessage = `${requester.name} submitted reservation ${reservation.reservation_number} for ${reservation.quantity_m3} m³`;
@@ -40,12 +81,14 @@ async function notifyReservationCreated(reservation, requester) {
        <p><b>Reservation:</b> ${reservation.reservation_number}</p>
        <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
        <p><b>Batching Plant:</b> ${reservation.batching_plant || 'N/A'}</p>`;
+  const reservationUrl = `/reservations/${reservation.reservation_id}`;
 
   // Notify P&M Head
   const { rows: pmHeads } = await query(`SELECT user_id, email FROM users WHERE role = 'PMHead'`);
   for (const pmh of pmHeads) {
     await createInAppNotification(pmh.user_id, notifTitle, notifMessage, reservation.reservation_id);
     await sendEmail(pmh.email, emailSubject, emailBody);
+    await sendPushToUser(pmh.user_id, notifTitle, notifMessage, reservationUrl);
   }
 
   // Notify P&M Managers assigned to this batching plant
@@ -61,6 +104,7 @@ async function notifyReservationCreated(reservation, requester) {
     for (const mgr of managers) {
       await createInAppNotification(mgr.user_id, notifTitle, notifMessage, reservation.reservation_id);
       await sendEmail(mgr.email, emailSubject, emailBody);
+      await sendPushToUser(mgr.user_id, notifTitle, notifMessage, reservationUrl);
     }
   }
 }
@@ -71,17 +115,16 @@ async function notifyReservationAcknowledged(reservation) {
     [reservation.requester_id]
   );
   if (!user[0]) return;
-  await createInAppNotification(
-    user[0].user_id,
-    'Reservation Acknowledged',
-    `Your reservation ${reservation.reservation_number} has been acknowledged by P&M.`,
-    reservation.reservation_id
-  );
+  const title = 'Reservation Acknowledged';
+  const message = `Your reservation ${reservation.reservation_number} has been acknowledged by P&M.`;
+  const reservationUrl = `/reservations/${reservation.reservation_id}`;
+  await createInAppNotification(user[0].user_id, title, message, reservation.reservation_id);
   await sendEmail(
     user[0].email,
     `Reservation Acknowledged: ${reservation.reservation_number}`,
     `<p>Your reservation <b>${reservation.reservation_number}</b> has been acknowledged.</p>`
   );
+  await sendPushToUser(user[0].user_id, title, message, reservationUrl);
 }
 
 async function notifySlotProposed(reservation) {
@@ -90,12 +133,11 @@ async function notifySlotProposed(reservation) {
     [reservation.requester_id]
   );
   if (!user[0]) return;
-  await createInAppNotification(
-    user[0].user_id,
-    'Alternative Slot Proposed',
-    `P&M has proposed an alternative slot for reservation ${reservation.reservation_number}.`,
-    reservation.reservation_id
-  );
+  const title = 'Alternative Slot Proposed';
+  const message = `P&M has proposed an alternative slot for reservation ${reservation.reservation_number}.`;
+  const reservationUrl = `/reservations/${reservation.reservation_id}`;
+  await createInAppNotification(user[0].user_id, title, message, reservation.reservation_id);
+  await sendPushToUser(user[0].user_id, title, message, reservationUrl);
 }
 
 async function notifyReservationStarted(reservation) {
@@ -108,13 +150,11 @@ async function notifyReservationStarted(reservation) {
      WHERE u.role = 'PMManager' AND bp.plant_name = $1`,
     [reservation.batching_plant]
   );
+  const title = 'Reservation Started';
+  const message = `Reservation ${reservation.reservation_number} has been started and is ready for concrete delivery.`;
+  const reservationUrl = `/reservations/${reservation.reservation_id}`;
   for (const mgr of managers) {
-    await createInAppNotification(
-      mgr.user_id,
-      'Reservation Started',
-      `Reservation ${reservation.reservation_number} has been started and is ready for concrete delivery.`,
-      reservation.reservation_id
-    );
+    await createInAppNotification(mgr.user_id, title, message, reservation.reservation_id);
     await sendEmail(
       mgr.email,
       `Reservation Started: ${reservation.reservation_number}`,
@@ -122,24 +162,24 @@ async function notifyReservationStarted(reservation) {
        <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
        <p><b>Batching Plant:</b> ${reservation.batching_plant}</p>`
     );
+    await sendPushToUser(mgr.user_id, title, message, reservationUrl);
   }
 }
 
 async function notifyApprovalActioned(approval, action) {
   const { rows: res } = await query(
-    `SELECT r.requester_id, r.reservation_number, u.email
+    `SELECT r.requester_id, r.reservation_id, r.reservation_number, u.email
      FROM reservations r JOIN users u ON r.requester_id = u.user_id
      WHERE r.reservation_id = $1`,
     [approval.reservation_id]
   );
   if (!res[0]) return;
   const status = action === 'Approved' ? 'approved' : 'rejected';
-  await createInAppNotification(
-    res[0].requester_id,
-    `Reservation ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-    `Your same-day reservation ${res[0].reservation_number} has been ${status}.`,
-    approval.reservation_id
-  );
+  const title = `Reservation ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+  const message = `Your same-day reservation ${res[0].reservation_number} has been ${status}.`;
+  const reservationUrl = `/reservations/${res[0].reservation_id}`;
+  await createInAppNotification(res[0].requester_id, title, message, approval.reservation_id);
+  await sendPushToUser(res[0].requester_id, title, message, reservationUrl);
 }
 
 module.exports = {
@@ -149,4 +189,5 @@ module.exports = {
   notifySlotProposed,
   notifyApprovalActioned,
   createInAppNotification,
+  sendPushToUser,
 };

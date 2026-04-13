@@ -15,6 +15,7 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const reportRoutes = require('./routes/report.routes');
 const configRoutes = require('./routes/config.routes');
 const notificationRoutes = require('./routes/notification.routes');
+const pushRoutes = require('./routes/push.routes');
 const whatsappRoutes = require('./routes/whatsapp.routes');
 
 const { errorHandler } = require('./middleware/errorHandler');
@@ -117,6 +118,7 @@ app.use('/api/dashboards', authenticate, dashboardRoutes);
 app.use('/api/reports', authenticate, reportRoutes);
 app.use('/api/config', authenticate, configRoutes);
 app.use('/api/notifications', authenticate, notificationRoutes);
+app.use('/api/push', authenticate, pushRoutes);
 
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));

@@ -1,6 +1,8 @@
 // src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { usePushNotifications } from './hooks/usePushNotifications';
+import InstallPrompt from './components/common/InstallPrompt';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -16,6 +18,12 @@ import ContractorsPage from './pages/ContractorsPage';
 import SettingsPage from './pages/SettingsPage';
 
 import AppLayout from './components/layout/AppLayout';
+
+function AppWithPush({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  usePushNotifications(!!user);
+  return <>{children}<InstallPrompt /></>;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -38,6 +46,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <AppWithPush>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
@@ -62,6 +71,7 @@ export default function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        </AppWithPush>
       </AuthProvider>
     </BrowserRouter>
   );

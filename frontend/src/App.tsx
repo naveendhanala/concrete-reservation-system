@@ -1,8 +1,10 @@
 // src/App.tsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import InstallPrompt from './components/common/InstallPrompt';
+import toast from 'react-hot-toast';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -22,6 +24,17 @@ import AppLayout from './components/layout/AppLayout';
 function AppWithPush({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { showBanner, enablePush, dismissBanner } = usePushNotifications(!!user);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === 'PUSH_RECEIVED') {
+        toast.success(`[Debug] SW received push: "${event.data.title}"`, { duration: 10000 });
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, []);
   return (
     <>
       {children}

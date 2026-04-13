@@ -37,13 +37,42 @@ router.delete('/subscribe', asyncHandler(async (req, res) => {
 
 // Send a test push notification to the current user
 router.post('/test', asyncHandler(async (req, res) => {
-  await sendPushToUser(
-    req.user.user_id,
-    'Test Notification',
-    'Push notifications are working correctly.',
-    '/'
+  const webpush = require('web-push');
+
+  // Check VAPID config
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+    return res.status(500).json({ error: 'VAPID keys not configured on server' });
+  }
+
+  // Check subscription exists
+  const { rows: subs } = await query(
+    'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = $1',
+    [req.user.user_id]
   );
-  res.json({ ok: true });
+
+  if (subs.length === 0) {
+    return res.status(404).json({ error: 'No push subscription found for your account. Try enabling notifications again.' });
+  }
+
+  const payload = JSON.stringify({ title: 'Test Notification', body: 'Push notifications are working correctly.', url: '/' });
+  const results = await Promise.allSettled(
+    subs.map((sub) =>
+      webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        payload
+      )
+    )
+  );
+
+  const failures = results
+    .filter((r) => r.status === 'rejected')
+    .map((r) => r.reason?.message ?? 'unknown error');
+
+  if (failures.length === subs.length) {
+    return res.status(500).json({ error: 'Push send failed: ' + failures[0] });
+  }
+
+  res.json({ ok: true, sent: subs.length - failures.length, failed: failures.length });
 }));
 
 module.exports = router;

@@ -40,6 +40,12 @@ export default function SettingsPage() {
 
   const visibleConfigs = configs.filter((cfg: any) => cfg.key in CONFIG_LABELS);
 
+  const testPushMutation = useMutation({
+    mutationFn: () => client.post('/push/test'),
+    onSuccess: () => toast.success('Test notification sent — check your device'),
+    onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to send test notification'),
+  });
+
   return (
     <div className="max-w-2xl space-y-8">
       <h1 className="text-xl font-bold text-gray-900">System Configuration</h1>
@@ -90,6 +96,24 @@ export default function SettingsPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Push notification test */}
+      <div>
+        <h2 className="text-base font-semibold text-gray-900 mb-3">Push Notifications</h2>
+        <div className="card p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-900">Send Test Notification</p>
+            <p className="text-xs text-gray-400 mt-0.5">Sends a push notification to your device to verify setup</p>
+          </div>
+          <button
+            className="btn-primary text-sm"
+            onClick={() => testPushMutation.mutate()}
+            disabled={testPushMutation.isPending}
+          >
+            {testPushMutation.isPending ? 'Sending...' : 'Send Test'}
+          </button>
+        </div>
       </div>
 
       {/* Fixed shift schedule */}

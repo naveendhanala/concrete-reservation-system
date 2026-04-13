@@ -48,9 +48,10 @@ router.get('/status', asyncHandler(async (req, res) => {
   });
 }));
 
-// Send a test push notification to the current user
+// Send a test push notification to a specific user (Admin only)
 router.post('/test', asyncHandler(async (req, res) => {
   const webpush = require('web-push');
+  const targetUserId = req.body.userId || req.user.user_id;
 
   // Check VAPID config
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
@@ -60,7 +61,7 @@ router.post('/test', asyncHandler(async (req, res) => {
   // Check subscription exists
   const { rows: subs } = await query(
     'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = $1',
-    [req.user.user_id]
+    [targetUserId]
   );
 
   if (subs.length === 0) {

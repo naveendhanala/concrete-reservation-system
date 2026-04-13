@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import client from '../api/client';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
+import { usersApi } from '../api';
 
 const CONFIG_LABELS: Record<string, string> = {
   cutoff_hours: 'Cutoff Hours (before slot start)',
@@ -21,6 +22,7 @@ const totalCapacity = SHIFTS.reduce((sum, s) => sum + s.capacity_m3, 0);
 export default function SettingsPage() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Record<string, string>>({});
+  const [testUserId, setTestUserId] = useState('');
 
   const { data: configs = [], isLoading } = useQuery({
     queryKey: ['config'],
@@ -40,9 +42,14 @@ export default function SettingsPage() {
 
   const visibleConfigs = configs.filter((cfg: any) => cfg.key in CONFIG_LABELS);
 
+  const { data: usersData } = useQuery({
+    queryKey: ['users-list'],
+    queryFn: () => usersApi.list().then((r: any) => r.users ?? r),
+  });
+
   const testPushMutation = useMutation({
-    mutationFn: () => client.post('/push/test'),
-    onSuccess: () => toast.success('Test notification sent — check your device'),
+    mutationFn: () => client.post('/push/test', testUserId ? { userId: testUserId } : {}),
+    onSuccess: () => toast.success('Test notification sent — check the selected device'),
     onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to send test notification'),
   });
 
@@ -101,15 +108,27 @@ export default function SettingsPage() {
       {/* Push notification test */}
       <div>
         <h2 className="text-base font-semibold text-gray-900 mb-3">Push Notifications</h2>
-        <div className="card p-4 flex items-center justify-between gap-4">
+        <div className="card p-4 space-y-3">
           <div>
             <p className="text-sm font-medium text-gray-900">Send Test Notification</p>
-            <p className="text-xs text-gray-400 mt-0.5">Sends a push notification to your device to verify setup</p>
+            <p className="text-xs text-gray-400 mt-0.5">Select a user and send a test push to verify their device</p>
           </div>
+          <select
+            className="input w-full text-sm"
+            value={testUserId}
+            onChange={(e) => setTestUserId(e.target.value)}
+          >
+            <option value="">— Select user —</option>
+            {(usersData ?? []).map((u: any) => (
+              <option key={u.user_id} value={u.user_id}>
+                {u.name} ({u.role})
+              </option>
+            ))}
+          </select>
           <button
             className="btn-primary text-sm"
             onClick={() => testPushMutation.mutate()}
-            disabled={testPushMutation.isPending}
+            disabled={testPushMutation.isPending || !testUserId}
           >
             {testPushMutation.isPending ? 'Sending...' : 'Send Test'}
           </button>

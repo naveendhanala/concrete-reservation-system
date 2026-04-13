@@ -194,6 +194,7 @@ exports.create = asyncHandler(async (req, res) => {
            VALUES ($1, $2, 'SameDay', NOW())`,
           [reservation.reservation_id, vpRows[0].user_id]
         );
+        result._vpUserId = vpRows[0].user_id;
       }
       // Increment same-day counter for PM
       await client.query(
@@ -210,6 +211,10 @@ exports.create = asyncHandler(async (req, res) => {
 
   // Notifications
   await notificationService.notifyReservationCreated(result, user);
+  await notificationService.notifyClusterHeadReservationCreated(result, user.name);
+  if (result._vpUserId) {
+    await notificationService.notifyApprovalRequested(result, result._vpUserId);
+  }
 
   res.status(201).json(result);
 });
@@ -391,6 +396,11 @@ exports.cancel = asyncHandler(async (req, res) => {
   });
 
   await auditService.log(user.user_id, 'reservations', id, 'Delete', existing[0], null);
+
+  const cancelled = { ...existing[0], cancellation_reason: reason };
+  await notificationService.notifyClusterHeadReservationCancelled(cancelled);
+  await notificationService.notifyPMManagerReservationCancelled(cancelled);
+
   res.json({ message: 'Reservation cancelled successfully' });
 });
 
@@ -523,6 +533,7 @@ exports.complete = asyncHandler(async (req, res) => {
   );
 
   await auditService.log(user.user_id, 'reservations', id, 'Update', existing[0], rows[0]);
+  await notificationService.notifyPMManagerReservationCompleted(rows[0]);
   res.json(rows[0]);
 });
 

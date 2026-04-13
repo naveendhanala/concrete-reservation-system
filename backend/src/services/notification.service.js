@@ -182,12 +182,138 @@ async function notifyApprovalActioned(approval, action) {
   await sendPushToUser(res[0].requester_id, title, message, reservationUrl);
 }
 
+async function notifyApprovalRequested(reservation, vpUserId) {
+  const title = 'Same-Day Approval Required';
+  const message = `Reservation ${reservation.reservation_number} requires your approval (${reservation.quantity_m3} m³, ${reservation.grade}).`;
+  const reservationUrl = `/reservations/${reservation.reservation_id}`;
+  const { rows: vp } = await query('SELECT email FROM users WHERE user_id = $1', [vpUserId]);
+  if (!vp[0]) return;
+  await createInAppNotification(vpUserId, title, message, reservation.reservation_id);
+  await sendEmail(
+    vp[0].email,
+    `Approval Required: ${reservation.reservation_number}`,
+    `<p>A same-day reservation requires your approval.</p>
+     <p><b>Reservation:</b> ${reservation.reservation_number}</p>
+     <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+     <p><b>Structure:</b> ${reservation.structure || 'N/A'}</p>`
+  );
+  await sendPushToUser(vpUserId, title, message, reservationUrl);
+}
+
+async function notifyClusterHeadReservationCreated(reservation, requesterName) {
+  const { rows: clusterHeads } = await query(
+    `SELECT DISTINCT u.user_id, u.email
+     FROM users u
+     JOIN user_packages up ON u.user_id = up.user_id
+     WHERE u.role = 'ClusterHead' AND up.package_id = $1`,
+    [reservation.package_id]
+  );
+  const title = 'New Reservation in Your Package';
+  const message = `${requesterName} submitted reservation ${reservation.reservation_number} for ${reservation.quantity_m3} m³ (${reservation.grade}).`;
+  const reservationUrl = `/reservations/${reservation.reservation_id}`;
+  for (const ch of clusterHeads) {
+    await createInAppNotification(ch.user_id, title, message, reservation.reservation_id);
+    await sendEmail(
+      ch.email,
+      `New Reservation: ${reservation.reservation_number}`,
+      `<p>A new reservation has been submitted in your package.</p>
+       <p><b>Reservation:</b> ${reservation.reservation_number}</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Batching Plant:</b> ${reservation.batching_plant || 'N/A'}</p>`
+    );
+    await sendPushToUser(ch.user_id, title, message, reservationUrl);
+  }
+}
+
+async function notifyClusterHeadReservationCancelled(reservation) {
+  const { rows: clusterHeads } = await query(
+    `SELECT DISTINCT u.user_id, u.email
+     FROM users u
+     JOIN user_packages up ON u.user_id = up.user_id
+     WHERE u.role = 'ClusterHead' AND up.package_id = $1`,
+    [reservation.package_id]
+  );
+  const title = 'Reservation Cancelled';
+  const message = `Reservation ${reservation.reservation_number} (${reservation.quantity_m3} m³) has been cancelled.`;
+  const reservationUrl = `/reservations/${reservation.reservation_id}`;
+  for (const ch of clusterHeads) {
+    await createInAppNotification(ch.user_id, title, message, reservation.reservation_id);
+    await sendEmail(
+      ch.email,
+      `Reservation Cancelled: ${reservation.reservation_number}`,
+      `<p>A reservation in your package has been cancelled.</p>
+       <p><b>Reservation:</b> ${reservation.reservation_number}</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Reason:</b> ${reservation.cancellation_reason || 'N/A'}</p>`
+    );
+    await sendPushToUser(ch.user_id, title, message, reservationUrl);
+  }
+}
+
+async function notifyPMManagerReservationCompleted(reservation) {
+  if (!reservation.batching_plant) return;
+  const { rows: managers } = await query(
+    `SELECT u.user_id, u.email
+     FROM users u
+     JOIN user_batching_plants ubp ON u.user_id = ubp.user_id
+     JOIN batching_plants bp ON ubp.plant_id = bp.plant_id
+     WHERE u.role = 'PMManager' AND bp.plant_name = $1`,
+    [reservation.batching_plant]
+  );
+  const title = 'Reservation Completed';
+  const message = `Reservation ${reservation.reservation_number} has been marked as completed (${reservation.actual_quantity_m3 ?? reservation.quantity_m3} m³ delivered).`;
+  const reservationUrl = `/reservations/${reservation.reservation_id}`;
+  for (const mgr of managers) {
+    await createInAppNotification(mgr.user_id, title, message, reservation.reservation_id);
+    await sendEmail(
+      mgr.email,
+      `Reservation Completed: ${reservation.reservation_number}`,
+      `<p>Reservation <b>${reservation.reservation_number}</b> has been completed.</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Batching Plant:</b> ${reservation.batching_plant}</p>`
+    );
+    await sendPushToUser(mgr.user_id, title, message, reservationUrl);
+  }
+}
+
+async function notifyPMManagerReservationCancelled(reservation) {
+  if (!reservation.batching_plant) return;
+  const { rows: managers } = await query(
+    `SELECT u.user_id, u.email
+     FROM users u
+     JOIN user_batching_plants ubp ON u.user_id = ubp.user_id
+     JOIN batching_plants bp ON ubp.plant_id = bp.plant_id
+     WHERE u.role = 'PMManager' AND bp.plant_name = $1`,
+    [reservation.batching_plant]
+  );
+  const title = 'Reservation Cancelled';
+  const message = `Reservation ${reservation.reservation_number} (${reservation.quantity_m3} m³, ${reservation.grade}) has been cancelled.`;
+  const reservationUrl = `/reservations/${reservation.reservation_id}`;
+  for (const mgr of managers) {
+    await createInAppNotification(mgr.user_id, title, message, reservation.reservation_id);
+    await sendEmail(
+      mgr.email,
+      `Reservation Cancelled: ${reservation.reservation_number}`,
+      `<p>Reservation <b>${reservation.reservation_number}</b> has been cancelled.</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Batching Plant:</b> ${reservation.batching_plant}</p>
+       <p><b>Reason:</b> ${reservation.cancellation_reason || 'N/A'}</p>`
+    );
+    await sendPushToUser(mgr.user_id, title, message, reservationUrl);
+  }
+}
+
 module.exports = {
   notifyReservationCreated,
   notifyReservationAcknowledged,
   notifyReservationStarted,
   notifySlotProposed,
   notifyApprovalActioned,
+  notifyApprovalRequested,
+  notifyClusterHeadReservationCreated,
+  notifyClusterHeadReservationCancelled,
+  notifyPMManagerReservationCompleted,
+  notifyPMManagerReservationCancelled,
   createInAppNotification,
   sendPushToUser,
 };

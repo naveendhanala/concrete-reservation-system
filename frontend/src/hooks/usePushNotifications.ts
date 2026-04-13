@@ -15,23 +15,24 @@ function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   return buffer;
 }
 
-async function doSubscribe() {
-  const swReady = new Promise<ServiceWorkerRegistration>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Service worker did not become ready in time')), 10000);
-    navigator.serviceWorker.ready.then((reg) => { clearTimeout(timer); resolve(reg); });
-  });
-  const registration = await swReady;
-  const existing = await registration.pushManager.getSubscription();
-
-  if (existing) {
-    await client.post('/push/subscribe', existing.toJSON());
-    return 'already-subscribed';
-  }
-
+async function createPushSubscription() {
+  // Step 1: request permission — does NOT need the SW, works immediately on user gesture
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') return 'denied';
 
-  const subscription = await registration.pushManager.subscribe({
+  // Step 2: now wait for SW (it should be ready quickly since permission was just granted)
+  const swReady = new Promise<ServiceWorkerRegistration>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error('Service worker is not ready. Try reinstalling the app.')),
+      10000
+    );
+    navigator.serviceWorker.ready.then((reg) => { clearTimeout(timer); resolve(reg); });
+  });
+  const registration = await swReady;
+
+  // Step 3: subscribe to push
+  const existing = await registration.pushManager.getSubscription();
+  const subscription = existing ?? await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
   });
@@ -40,8 +41,14 @@ async function doSubscribe() {
   return 'subscribed';
 }
 
-// Returns whether the user should be prompted to enable notifications
-// and an enablePush() function to call on a user gesture (button tap)
+async function syncExistingSubscription() {
+  const registration = await navigator.serviceWorker.ready;
+  const existing = await registration.pushManager.getSubscription();
+  if (existing) {
+    await client.post('/push/subscribe', existing.toJSON());
+  }
+}
+
 export function usePushNotifications(isLoggedIn: boolean) {
   const [showBanner, setShowBanner] = useState(false);
 
@@ -50,13 +57,11 @@ export function usePushNotifications(isLoggedIn: boolean) {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     if (!VAPID_PUBLIC_KEY) return;
 
-    // If already granted, just sync the subscription silently
     if (Notification.permission === 'granted') {
-      doSubscribe().catch(() => {});
+      syncExistingSubscription().catch(() => {});
       return;
     }
 
-    // If not yet decided, show the banner asking the user to enable
     if (Notification.permission === 'default') {
       setShowBanner(true);
     }
@@ -65,9 +70,11 @@ export function usePushNotifications(isLoggedIn: boolean) {
   async function enablePush() {
     setShowBanner(false);
     try {
-      const result = await doSubscribe();
+      const result = await createPushSubscription();
       if (result === 'denied') {
         toast.error('Notification permission denied');
+      } else {
+        toast.success('Notifications enabled');
       }
     } catch (err: any) {
       toast.error('Push setup failed: ' + (err?.message ?? 'unknown error'));

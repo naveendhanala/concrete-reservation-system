@@ -2,6 +2,7 @@
 const express = require('express');
 const { query } = require('../config/db');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { sendPushToUser } = require('../services/notification.service');
 const router = express.Router();
 
 // Save push subscription for current user
@@ -31,6 +32,17 @@ router.delete('/subscribe', asyncHandler(async (req, res) => {
     [req.user.user_id, endpoint]
   );
 
+  res.json({ ok: true });
+}));
+
+// Send a test push notification to the current user
+router.post('/test', asyncHandler(async (req, res) => {
+  await sendPushToUser(
+    req.user.user_id,
+    'Test Notification',
+    'Push notifications are working correctly.',
+    '/'
+  );
   res.json({ ok: true });
 }));
 

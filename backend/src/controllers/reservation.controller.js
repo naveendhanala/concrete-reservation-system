@@ -194,7 +194,7 @@ exports.create = asyncHandler(async (req, res) => {
            VALUES ($1, $2, 'SameDay', NOW())`,
           [reservation.reservation_id, vpRows[0].user_id]
         );
-        result._vpUserId = vpRows[0].user_id;
+        reservation._vpUserId = vpRows[0].user_id;
       }
       // Increment same-day counter for PM
       await client.query(

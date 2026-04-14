@@ -73,6 +73,12 @@ function RoleRoute({ roles, children }: { roles: string[]; children: React.React
   return <>{children}</>;
 }
 
+function HomeRedirect() {
+  const { user } = useAuth();
+  if (user?.role === 'LabourMob') return <Navigate to="/contractors" replace />;
+  return <DashboardPage />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -81,7 +87,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-            <Route index element={<DashboardPage />} />
+            <Route index element={<HomeRedirect />} />
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="reservations/new" element={
               <RoleRoute roles={['PM']}><NewReservationPage /></RoleRoute>
@@ -94,7 +100,7 @@ export default function App() {
               <RoleRoute roles={['Admin']}><UsersPage /></RoleRoute>
             } />
             <Route path="contractors" element={
-              <RoleRoute roles={['Admin']}><ContractorsPage /></RoleRoute>
+              <RoleRoute roles={['Admin', 'LabourMob']}><ContractorsPage /></RoleRoute>
             } />
             <Route path="settings" element={
               <RoleRoute roles={['Admin']}><SettingsPage /></RoleRoute>

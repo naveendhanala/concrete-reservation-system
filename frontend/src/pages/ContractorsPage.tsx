@@ -162,7 +162,7 @@ export default function ContractorsPage() {
 
   const { data: contractors = [], isLoading } = useQuery({
     queryKey: ['contractors'],
-    queryFn: () => usersApi.getContractors(''),
+    queryFn: () => usersApi.getContractors('', true),
   });
 
   const filtered = contractors.filter((c: Contractor) =>

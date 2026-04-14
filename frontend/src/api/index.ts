@@ -99,8 +99,8 @@ export const usersApi = {
   deleteEngineer: (id: string) =>
     client.delete(`/users/engineers/${id}`).then((r) => r.data),
 
-  getContractors: (search?: string) =>
-    client.get('/users/contractors', { params: { search } }).then((r) => r.data),
+  getContractors: (search?: string, all?: boolean) =>
+    client.get('/users/contractors', { params: { search, all } }).then((r) => r.data),
 
   createContractor: (data: Record<string, any>) =>
     client.post('/users/contractors', data).then((r) => r.data),

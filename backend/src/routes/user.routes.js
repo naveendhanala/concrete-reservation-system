@@ -44,11 +44,15 @@ router.get('/engineers', asyncHandler(async (req, res) => {
 }));
 
 // Get contractors with optional search
+// Pass ?all=true to include inactive contractors (used by Contractors management page)
 router.get('/contractors', asyncHandler(async (req, res) => {
-  const { search } = req.query;
+  const { search, all } = req.query;
   const { rows } = await query(
-    `SELECT * FROM contractors WHERE active_flag = TRUE AND ($1::text IS NULL OR name ILIKE $1) ORDER BY name`,
-    [search ? `%${search}%` : null]
+    `SELECT * FROM contractors
+     WHERE ($1::boolean IS TRUE OR active_flag = TRUE)
+       AND ($2::text IS NULL OR name ILIKE $2)
+     ORDER BY name`,
+    [all === 'true' || null, search ? `%${search}%` : null]
   );
   res.json(rows);
 }));
@@ -213,7 +217,7 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
 
 // ── Contractor mutations (Admin only) ─────────────────────────────────────
 
-router.post('/contractors', requireRole('Admin'), asyncHandler(async (req, res) => {
+router.post('/contractors', requireRole('Admin', 'LabourMob'), asyncHandler(async (req, res) => {
   const { name, contact } = req.body;
   if (!name) throw new AppError('name is required', 400);
   const { rows } = await query(
@@ -223,7 +227,7 @@ router.post('/contractors', requireRole('Admin'), asyncHandler(async (req, res) 
   res.status(201).json(rows[0]);
 }));
 
-router.patch('/contractors/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
+router.patch('/contractors/:id', requireRole('Admin', 'LabourMob'), asyncHandler(async (req, res) => {
   const { name, contact, active_flag } = req.body;
   const { rows } = await query(
     `UPDATE contractors

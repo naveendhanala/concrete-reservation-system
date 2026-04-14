@@ -106,22 +106,19 @@ async function getAvailableSlotsRange(fromDate, toDate) {
 }
 
 /**
- * Auto-split: Given a requested quantity and a preferred start slot,
- * find how to allocate across consecutive slots.
- * Returns an array of { slot_id, allocated_m3 } or throws if not enough capacity.
+ * Validate that the requested slot has enough remaining capacity for the full quantity.
+ * Returns a single-element array of { slot_id, allocated_m3 } or throws if insufficient.
+ * Pass excludeReservationId to ignore that reservation's existing allocation (used by modify).
  */
-async function computeSlotAllocation(requestedSlotId, quantity) {
-  // Get the requested slot and all subsequent slots on same day
-  const { rows: requestedSlot } = await query(
-    'SELECT slot_date, start_time FROM slots WHERE slot_id = $1',
-    [requestedSlotId]
-  );
-  if (!requestedSlot[0]) throw new AppError('Slot not found', 404);
+async function computeSlotAllocation(requestedSlotId, quantity, excludeReservationId = null) {
+  const params = [requestedSlotId];
+  let excludeClause = '';
+  if (excludeReservationId) {
+    params.push(excludeReservationId);
+    excludeClause = `AND rsm.reservation_id != $${params.length}`;
+  }
 
-  const { slot_date, start_time } = requestedSlot[0];
-
-  // Get all slots from the requested slot onward on that date
-  const { rows: slots } = await query(
+  const { rows } = await query(
     `SELECT
        s.slot_id,
        s.capacity_m3,
@@ -130,39 +127,25 @@ async function computeSlotAllocation(requestedSlotId, quantity) {
           FROM reservation_slot_mappings rsm
           JOIN reservations r ON rsm.reservation_id = r.reservation_id
           WHERE rsm.slot_id = s.slot_id
-            AND r.status NOT IN ('Rejected', 'Cancelled')),
+            AND r.status NOT IN ('Rejected', 'Cancelled')
+            ${excludeClause}),
          0
        ) AS booked_m3
      FROM slots s
-     WHERE s.slot_date = $1
-       AND s.start_time >= $2
-       AND s.is_active = TRUE
-     ORDER BY s.start_time`,
-    [slot_date, start_time]
+     WHERE s.slot_id = $1`,
+    params
   );
+  if (!rows[0]) throw new AppError('Slot not found', 404);
 
-  const allocation = [];
-  let remaining = parseFloat(quantity);
-
-  for (const slot of slots) {
-    if (remaining <= 0) break;
-    const available = parseFloat(slot.capacity_m3) - parseFloat(slot.booked_m3);
-    if (available <= 0) continue;
-
-    const allocate = Math.min(available, remaining);
-    allocation.push({ slot_id: slot.slot_id, allocated_m3: allocate });
-    remaining -= allocate;
-  }
-
-  if (remaining > 0) {
+  const available = parseFloat(rows[0].capacity_m3) - parseFloat(rows[0].booked_m3);
+  if (parseFloat(quantity) > available) {
     throw new AppError(
-      `Insufficient capacity. Only ${quantity - remaining} m³ available across remaining slots. ` +
-      `Please choose a different date or reduce quantity.`,
+      `Insufficient capacity. Only ${available.toFixed(2)} m³ available in this slot.`,
       409
     );
   }
 
-  return allocation;
+  return [{ slot_id: requestedSlotId, allocated_m3: parseFloat(quantity) }];
 }
 
 /**

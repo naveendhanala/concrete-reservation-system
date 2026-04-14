@@ -149,7 +149,7 @@ exports.create = asyncHandler(async (req, res) => {
   if (!slotRows[0]) throw new AppError('Slot not found', 404);
   const slot = slotRows[0];
 
-  // Compute allocation (handles auto-split)
+  // Validate slot has enough capacity for the full requested quantity
   const allocation = await capacityService.computeSlotAllocation(slotId, quantity_m3);
   const isSameDay = capacityService.isSameDay(slot.start_time);
 
@@ -171,10 +171,8 @@ exports.create = asyncHandler(async (req, res) => {
         nature_of_work, pouring_type, engineer_user_id || null, contractor_id,
         isSameDay ? 'SameDay' : 'Normal',
         isSameDay ? 'PendingApproval' : 'Submitted',
-        slot.start_time, allocation.length > 1
-          ? (await query('SELECT end_time FROM slots WHERE slot_id = $1', [allocation[allocation.length - 1].slot_id])).rows[0].end_time
-          : slot.end_time,
-        allocation.length > 1,
+        slot.start_time, slot.end_time,
+        false,
         rfi_id || null,
         batching_plant || null,
       ]
@@ -282,7 +280,7 @@ exports.proposeAlternative = asyncHandler(async (req, res) => {
            requested_end      = $3::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
            is_split = $4
        WHERE reservation_id = $5`,
-      [user.user_id, newSlot[0].start_time, newSlot[0].end_time, allocation.length > 1, id]
+      [user.user_id, newSlot[0].start_time, newSlot[0].end_time, false, id]
     );
 
     // Log history
@@ -323,10 +321,10 @@ exports.modify = asyncHandler(async (req, res) => {
     throw new AppError('Modification is past cutoff. Please contact P&M for assistance.', 400);
   }
 
-  // Recompute allocation
+  // Recompute allocation — exclude this reservation's own booking from the capacity check
   const targetSlotId = slotId || firstSlotId;
   const targetQty = quantity_m3 || existing[0].quantity_m3;
-  const allocation = await capacityService.computeSlotAllocation(targetSlotId, targetQty);
+  const allocation = await capacityService.computeSlotAllocation(targetSlotId, targetQty, id);
 
   await withTransaction(async (client) => {
     await client.query('DELETE FROM reservation_slot_mappings WHERE reservation_id = $1', [id]);

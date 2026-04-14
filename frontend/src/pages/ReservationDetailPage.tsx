@@ -42,8 +42,10 @@ export default function ReservationDetailPage() {
   const [showCancel, setShowCancel] = useState(false);
   const [showDelivery, setShowDelivery] = useState(false);
   const [deliveryQty, setDeliveryQty] = useState('');
-  const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [editingDelivery, setEditingDelivery] = useState<{ id: string; qty: string; notes: string } | null>(null);
+  const [deliveryTmNo, setDeliveryTmNo] = useState('');
+  const [deliveryDriverNo, setDeliveryDriverNo] = useState('');
+  const [deliveryBatchingPlant, setDeliveryBatchingPlant] = useState('');
+  const [editingDelivery, setEditingDelivery] = useState<{ id: string; qty: string; tm_no: string; driver_no: string; batching_plant: string } | null>(null);
   const [showModify, setShowModify] = useState(false);
   const [modifyQty, setModifyQty] = useState('');
   const [modifyReason, setModifyReason] = useState('');
@@ -89,12 +91,14 @@ export default function ReservationDetailPage() {
   });
 
   const deliveryMutation = useMutation({
-    mutationFn: () => reservationsApi.addDelivery(id!, parseFloat(deliveryQty), deliveryNotes || undefined),
+    mutationFn: () => reservationsApi.addDelivery(id!, parseFloat(deliveryQty), deliveryTmNo, deliveryDriverNo, deliveryBatchingPlant),
     onSuccess: () => {
       toast.success('Delivery logged');
       setShowDelivery(false);
       setDeliveryQty('');
-      setDeliveryNotes('');
+      setDeliveryTmNo('');
+      setDeliveryDriverNo('');
+      setDeliveryBatchingPlant('');
       queryClient.invalidateQueries({ queryKey: ['reservation', id] });
       queryClient.invalidateQueries({ queryKey: ['reservations'] });
     },
@@ -103,7 +107,7 @@ export default function ReservationDetailPage() {
 
   const editDeliveryMutation = useMutation({
     mutationFn: () => reservationsApi.editDelivery(
-      id!, editingDelivery!.id, parseFloat(editingDelivery!.qty), editingDelivery!.notes || undefined
+      id!, editingDelivery!.id, parseFloat(editingDelivery!.qty), editingDelivery!.tm_no, editingDelivery!.driver_no, editingDelivery!.batching_plant
     ),
     onSuccess: () => {
       toast.success('Delivery updated');
@@ -254,7 +258,9 @@ export default function ReservationDetailPage() {
                     <span className="font-medium text-gray-700">Trip {i + 1}</span>
                     <span className="text-gray-400 mx-2">·</span>
                     <span className="text-gray-500">{d.delivered_by_name}</span>
-                    {d.notes && <span className="text-gray-400 ml-2 text-xs">— {d.notes}</span>}
+                    {d.tm_no && <span className="text-gray-400 ml-2 text-xs">TM: {d.tm_no}</span>}
+                    {d.driver_no && <span className="text-gray-400 ml-2 text-xs">· Driver: {d.driver_no}</span>}
+                    {d.batching_plant && <span className="text-gray-400 ml-2 text-xs">· {d.batching_plant}</span>}
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
@@ -263,7 +269,7 @@ export default function ReservationDetailPage() {
                     </div>
                     {canAddDelivery && (
                       <button
-                        onClick={() => setEditingDelivery({ id: d.delivery_id, qty: String(d.quantity_m3), notes: d.notes || '' })}
+                        onClick={() => setEditingDelivery({ id: d.delivery_id, qty: String(d.quantity_m3), tm_no: d.tm_no || '', driver_no: d.driver_no || '', batching_plant: d.batching_plant || '' })}
                         className="text-gray-400 hover:text-primary-600 p-1 rounded"
                         title="Edit trip"
                       >
@@ -368,19 +374,35 @@ export default function ReservationDetailPage() {
               placeholder="e.g. 5"
               autoFocus
             />
-            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Notes (optional)</label>
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">TM No. *</label>
+            <input
+              type="text"
+              className="input mt-1 mb-3"
+              value={deliveryTmNo}
+              onChange={(e) => setDeliveryTmNo(e.target.value)}
+              placeholder="e.g. TM-1234"
+            />
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Driver No. *</label>
+            <input
+              type="text"
+              className="input mt-1 mb-3"
+              value={deliveryDriverNo}
+              onChange={(e) => setDeliveryDriverNo(e.target.value)}
+              placeholder="e.g. D-5678"
+            />
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Batching Plant *</label>
             <input
               type="text"
               className="input mt-1"
-              value={deliveryNotes}
-              onChange={(e) => setDeliveryNotes(e.target.value)}
-              placeholder="e.g. First truck"
+              value={deliveryBatchingPlant}
+              onChange={(e) => setDeliveryBatchingPlant(e.target.value)}
+              placeholder="e.g. Plant A"
             />
             <div className="flex gap-3 mt-4">
-              <button className="btn-secondary flex-1" onClick={() => { setShowDelivery(false); setDeliveryQty(''); setDeliveryNotes(''); }}>Cancel</button>
+              <button className="btn-secondary flex-1" onClick={() => { setShowDelivery(false); setDeliveryQty(''); setDeliveryTmNo(''); setDeliveryDriverNo(''); setDeliveryBatchingPlant(''); }}>Cancel</button>
               <button
                 className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                disabled={!deliveryQty || parseFloat(deliveryQty) <= 0 || deliveryMutation.isPending}
+                disabled={!deliveryQty || parseFloat(deliveryQty) <= 0 || !deliveryTmNo.trim() || !deliveryDriverNo.trim() || !deliveryBatchingPlant.trim() || deliveryMutation.isPending}
                 onClick={() => deliveryMutation.mutate()}>
                 {deliveryMutation.isPending ? 'Saving...' : 'Log Delivery'}
               </button>
@@ -427,7 +449,7 @@ export default function ReservationDetailPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <h3 className="font-semibold text-gray-900 mb-1">Edit Delivery Trip</h3>
-            <p className="text-sm text-gray-500 mb-4">Update the quantity or notes for this trip.</p>
+            <p className="text-sm text-gray-500 mb-4">Update the details for this trip.</p>
             <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Quantity Delivered (m³)</label>
             <input
               type="number" min="0.1" step="0.01"
@@ -436,19 +458,35 @@ export default function ReservationDetailPage() {
               onChange={(e) => setEditingDelivery((d) => d && ({ ...d, qty: e.target.value }))}
               autoFocus
             />
-            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Notes (optional)</label>
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">TM No. *</label>
+            <input
+              type="text"
+              className="input mt-1 mb-3"
+              value={editingDelivery.tm_no}
+              onChange={(e) => setEditingDelivery((d) => d && ({ ...d, tm_no: e.target.value }))}
+              placeholder="e.g. TM-1234"
+            />
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Driver No. *</label>
+            <input
+              type="text"
+              className="input mt-1 mb-3"
+              value={editingDelivery.driver_no}
+              onChange={(e) => setEditingDelivery((d) => d && ({ ...d, driver_no: e.target.value }))}
+              placeholder="e.g. D-5678"
+            />
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Batching Plant *</label>
             <input
               type="text"
               className="input mt-1"
-              value={editingDelivery.notes}
-              onChange={(e) => setEditingDelivery((d) => d && ({ ...d, notes: e.target.value }))}
-              placeholder="e.g. First truck"
+              value={editingDelivery.batching_plant}
+              onChange={(e) => setEditingDelivery((d) => d && ({ ...d, batching_plant: e.target.value }))}
+              placeholder="e.g. Plant A"
             />
             <div className="flex gap-3 mt-4">
               <button className="btn-secondary flex-1" onClick={() => setEditingDelivery(null)}>Cancel</button>
               <button
                 className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                disabled={!editingDelivery.qty || parseFloat(editingDelivery.qty) <= 0 || editDeliveryMutation.isPending}
+                disabled={!editingDelivery.qty || parseFloat(editingDelivery.qty) <= 0 || !editingDelivery.tm_no.trim() || !editingDelivery.driver_no.trim() || !editingDelivery.batching_plant.trim() || editDeliveryMutation.isPending}
                 onClick={() => editDeliveryMutation.mutate()}>
                 {editDeliveryMutation.isPending ? 'Saving...' : 'Save Changes'}
               </button>

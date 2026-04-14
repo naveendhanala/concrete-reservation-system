@@ -32,11 +32,11 @@ export const reservationsApi = {
   complete: (id: string) =>
     client.patch(`/reservations/${id}/complete`).then((r) => r.data),
 
-  addDelivery: (id: string, quantity_m3: number, notes?: string) =>
-    client.post(`/reservations/${id}/deliveries`, { quantity_m3, notes }).then((r) => r.data),
+  addDelivery: (id: string, quantity_m3: number, tm_no: string, driver_no: string, batching_plant: string) =>
+    client.post(`/reservations/${id}/deliveries`, { quantity_m3, tm_no, driver_no, batching_plant }).then((r) => r.data),
 
-  editDelivery: (id: string, deliveryId: string, quantity_m3: number, notes?: string) =>
-    client.patch(`/reservations/${id}/deliveries/${deliveryId}`, { quantity_m3, notes }).then((r) => r.data),
+  editDelivery: (id: string, deliveryId: string, quantity_m3: number, tm_no: string, driver_no: string, batching_plant: string) =>
+    client.patch(`/reservations/${id}/deliveries/${deliveryId}`, { quantity_m3, tm_no, driver_no, batching_plant }).then((r) => r.data),
 };
 
 // src/api/slots.api.ts

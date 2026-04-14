@@ -110,7 +110,7 @@ exports.getById = asyncHandler(async (req, res) => {
   if (!rows[0]) throw new AppError('Reservation not found', 404);
 
   const { rows: deliveries } = await query(
-    `SELECT d.delivery_id, d.quantity_m3, d.notes, d.delivered_at, u.name AS delivered_by_name
+    `SELECT d.delivery_id, d.quantity_m3, d.tm_no, d.driver_no, d.batching_plant, d.delivered_at, u.name AS delivered_by_name
      FROM reservation_deliveries d
      JOIN users u ON d.delivered_by = u.user_id
      WHERE d.reservation_id = $1
@@ -427,12 +427,15 @@ exports.start = asyncHandler(async (req, res) => {
 // ── ADD DELIVERY ──────────────────────────────────────────────────────────────
 exports.addDelivery = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { quantity_m3, notes } = req.body;
+  const { quantity_m3, tm_no, driver_no, batching_plant } = req.body;
   const user = req.user;
 
   if (!quantity_m3 || isNaN(quantity_m3) || parseFloat(quantity_m3) <= 0) {
     throw new AppError('Valid quantity is required', 400);
   }
+  if (!tm_no || !tm_no.trim()) throw new AppError('TM No. is required', 400);
+  if (!driver_no || !driver_no.trim()) throw new AppError('Driver No. is required', 400);
+  if (!batching_plant || !batching_plant.trim()) throw new AppError('Batching Plant is required', 400);
 
   const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
   if (!existing[0]) throw new AppError('Reservation not found', 404);
@@ -445,9 +448,9 @@ exports.addDelivery = asyncHandler(async (req, res) => {
 
   await withTransaction(async (client) => {
     await client.query(
-      `INSERT INTO reservation_deliveries (reservation_id, quantity_m3, delivered_by, notes)
-       VALUES ($1, $2, $3, $4)`,
-      [id, parseFloat(quantity_m3), user.user_id, notes || null]
+      `INSERT INTO reservation_deliveries (reservation_id, quantity_m3, delivered_by, tm_no, driver_no, batching_plant)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, parseFloat(quantity_m3), user.user_id, tm_no.trim(), driver_no.trim(), batching_plant.trim()]
     );
     await client.query(
       `UPDATE reservations SET actual_quantity_m3 = COALESCE(actual_quantity_m3, 0) + $1 WHERE reservation_id = $2`,
@@ -456,7 +459,7 @@ exports.addDelivery = asyncHandler(async (req, res) => {
   });
 
   const { rows: deliveries } = await query(
-    `SELECT d.delivery_id, d.quantity_m3, d.notes, d.delivered_at, u.name AS delivered_by_name
+    `SELECT d.delivery_id, d.quantity_m3, d.tm_no, d.driver_no, d.batching_plant, d.delivered_at, u.name AS delivered_by_name
      FROM reservation_deliveries d
      JOIN users u ON d.delivered_by = u.user_id
      WHERE d.reservation_id = $1
@@ -469,12 +472,15 @@ exports.addDelivery = asyncHandler(async (req, res) => {
 // ── EDIT DELIVERY ─────────────────────────────────────────────────────────────
 exports.editDelivery = asyncHandler(async (req, res) => {
   const { id, deliveryId } = req.params;
-  const { quantity_m3, notes } = req.body;
+  const { quantity_m3, tm_no, driver_no, batching_plant } = req.body;
   const user = req.user;
 
   if (!quantity_m3 || isNaN(quantity_m3) || parseFloat(quantity_m3) <= 0) {
     throw new AppError('Valid quantity is required', 400);
   }
+  if (!tm_no || !tm_no.trim()) throw new AppError('TM No. is required', 400);
+  if (!driver_no || !driver_no.trim()) throw new AppError('Driver No. is required', 400);
+  if (!batching_plant || !batching_plant.trim()) throw new AppError('Batching Plant is required', 400);
 
   const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
   if (!existing[0]) throw new AppError('Reservation not found', 404);
@@ -497,8 +503,8 @@ exports.editDelivery = asyncHandler(async (req, res) => {
 
   await withTransaction(async (client) => {
     await client.query(
-      `UPDATE reservation_deliveries SET quantity_m3 = $1, notes = $2 WHERE delivery_id = $3`,
-      [newQty, notes || null, deliveryId]
+      `UPDATE reservation_deliveries SET quantity_m3 = $1, tm_no = $2, driver_no = $3, batching_plant = $4 WHERE delivery_id = $5`,
+      [newQty, tm_no.trim(), driver_no.trim(), batching_plant.trim(), deliveryId]
     );
     await client.query(
       `UPDATE reservations SET actual_quantity_m3 = COALESCE(actual_quantity_m3, 0) + $1 WHERE reservation_id = $2`,
@@ -507,7 +513,7 @@ exports.editDelivery = asyncHandler(async (req, res) => {
   });
 
   const { rows: deliveries } = await query(
-    `SELECT d.delivery_id, d.quantity_m3, d.notes, d.delivered_at, u.name AS delivered_by_name
+    `SELECT d.delivery_id, d.quantity_m3, d.tm_no, d.driver_no, d.batching_plant, d.delivered_at, u.name AS delivered_by_name
      FROM reservation_deliveries d
      JOIN users u ON d.delivered_by = u.user_id
      WHERE d.reservation_id = $1

@@ -25,16 +25,22 @@ types.setTypeParser(1184, (val) => {
   );
 }); // TIMESTAMPTZ → "YYYY-MM-DD HH:MM:SS" in IST
 
+// Strip sslmode from URL so the explicit ssl object below takes full control.
+// Neon connection strings include sslmode=require which the new pg version
+// treats as verify-full, causing SSL handshake failures.
+const rawUrl = process.env.DATABASE_URL || process.env.reservations_DATABASE_URL;
+const dbUrl = rawUrl ? rawUrl.replace(/[?&]sslmode=[^&]*/g, (m) => m.startsWith('?') ? '?' : '') : null;
+
 const pool = new Pool(
-  (process.env.DATABASE_URL || process.env.reservations_DATABASE_URL)
+  dbUrl
     ? {
-        connectionString: process.env.DATABASE_URL || process.env.reservations_DATABASE_URL,
+        connectionString: dbUrl,
         ssl: { rejectUnauthorized: false },
         max: parseInt(process.env.DB_POOL_MAX || '10'),
         idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000'),
-        connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '2000'),
+        connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '30000'),
       }
-    : {
+    : /* local postgres */ {
         host: process.env.DB_HOST || 'localhost',
         port: parseInt(process.env.DB_PORT || '5432'),
         database: process.env.DB_NAME || 'concrete_reservation',
@@ -42,7 +48,7 @@ const pool = new Pool(
         password: process.env.DB_PASSWORD || 'concrete_pass',
         max: parseInt(process.env.DB_POOL_MAX || '10'),
         idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000'),
-        connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '2000'),
+        connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '30000'),
       }
 );
 

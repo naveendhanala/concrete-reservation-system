@@ -127,6 +127,41 @@ export const packagesApi = {
   list: () => client.get('/packages').then((r) => r.data),
 };
 
+// src/api/machinery.api.ts
+export const machineryApi = {
+  list: () => client.get('/machinery').then((r) => r.data),
+
+  create: (data: { description: string; make_model?: string; reg_no?: string; last_month_availability?: number | string; last_month_utilization?: number | string }) =>
+    client.post('/machinery', data).then((r) => r.data),
+
+  update: (id: string, data: { description?: string; make_model?: string; reg_no?: string; last_month_availability?: number | string; last_month_utilization?: number | string; assigned_to?: string }) =>
+    client.patch(`/machinery/${id}`, data).then((r) => r.data),
+
+  upload: (records: any[]) =>
+    client.post('/machinery/upload', { records }).then((r) => r.data),
+
+  remove: (id: string) =>
+    client.delete(`/machinery/${id}`).then((r) => r.data),
+
+  raiseIssue: (id: string, remarks: string) =>
+    client.post(`/machinery/${id}/issues`, { remarks }).then((r) => r.data),
+
+  listIssues: () =>
+    client.get('/machinery/issues').then((r) => r.data),
+
+  resolveIssue: (issueId: string, resolution_remarks: string) =>
+    client.patch(`/machinery/issues/${issueId}/resolve`, { resolution_remarks }).then((r) => r.data),
+
+  listRequests: () =>
+    client.get('/machinery/requests').then((r) => r.data),
+
+  createRequest: (data: { machinery_name: string; machinery_type?: string; remarks?: string }) =>
+    client.post('/machinery/requests', data).then((r) => r.data),
+
+  completeRequest: (requestId: string) =>
+    client.patch(`/machinery/requests/${requestId}/complete`).then((r) => r.data),
+};
+
 // src/api/reports.api.ts
 export const reportsApi = {
   sla: (params: Record<string, any>) =>

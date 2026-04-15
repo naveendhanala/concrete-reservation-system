@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, ClipboardList, CheckSquare, Calendar,
-  BarChart2, Users, Settings, LogOut, Bell, HardHat, Menu, X, Building2
+  BarChart2, Users, Settings, LogOut, Bell, HardHat, Menu, X, Building2, Wrench
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ const navItems = [
   { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['PM','VP','ClusterHead','PMHead','PMManager','Admin'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['Admin'] },
   { to: '/contractors', icon: Building2, label: 'Contractors', roles: ['Admin', 'LabourMob'] },
+  { to: '/machinery', icon: Wrench, label: 'Machinery (Under Testing)', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin','Engineer','LabourMob'] },
   { to: '/settings', icon: Settings, label: 'Settings', roles: ['Admin'] },
 ];
 

@@ -17,6 +17,7 @@ const configRoutes = require('./routes/config.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const pushRoutes = require('./routes/push.routes');
 const whatsappRoutes = require('./routes/whatsapp.routes');
+const machineryRoutes = require('./routes/machinery.routes');
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { authenticate } = require('./middleware/auth');
@@ -48,7 +49,7 @@ app.use(rateLimit({
 }));
 
 // Parsing
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Logging
@@ -119,6 +120,7 @@ app.use('/api/reports', authenticate, reportRoutes);
 app.use('/api/config', authenticate, configRoutes);
 app.use('/api/notifications', authenticate, notificationRoutes);
 app.use('/api/push', authenticate, pushRoutes);
+app.use('/api/machinery', authenticate, machineryRoutes);
 
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));

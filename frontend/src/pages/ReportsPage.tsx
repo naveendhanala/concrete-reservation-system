@@ -60,6 +60,9 @@ export default function ReportsPage() {
   const { user } = useAuth();
   const isPM = user?.role === 'PM';
   const isPMHead = user?.role === 'PMHead';
+  const isAdmin = user?.role === 'Admin';
+  const isPMManager = user?.role === 'PMManager';
+  const canDownloadDaily = isPMHead || isPMManager || isPM || isAdmin;
 
   const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -97,8 +100,8 @@ export default function ReportsPage() {
     <div>
       <h1 className="text-xl font-bold text-gray-900 mb-6">Reports & Analytics</h1>
 
-      {/* Daily Pour Report — PMHead only */}
-      {isPMHead && (
+      {/* Daily Pour Report — PMHead, PM, Admin */}
+      {canDownloadDaily && (
         <div className="card p-4 mb-6 flex flex-wrap items-end gap-3">
           <div>
             <p className="text-sm font-semibold text-gray-800 mb-1">Daily Pour Report</p>

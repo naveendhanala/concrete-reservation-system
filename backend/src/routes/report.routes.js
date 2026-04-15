@@ -88,10 +88,12 @@ router.get('/packages', asyncHandler(async (req, res) => {
   res.json(rows);
 }));
 
-// Daily pour report — PMHead only
-router.get('/daily', requireRole('PMHead'), asyncHandler(async (req, res) => {
+// Daily pour report — PMHead, PM, Admin
+router.get('/daily', requireRole('PMHead', 'PMManager', 'PM', 'Admin'), asyncHandler(async (req, res) => {
   const { date } = req.query;
   if (!date) throw new AppError('date query param is required (YYYY-MM-DD)', 400);
+
+  const packageId = await resolvePackageId(req);
 
   const { rows } = await query(
     `SELECT
@@ -121,9 +123,10 @@ router.get('/daily', requireRole('PMHead'), asyncHandler(async (req, res) => {
      LEFT JOIN reservation_deliveries d ON d.reservation_id = r.reservation_id
      WHERE ${POUR_DATE} = $1::date
        AND r.status NOT IN ('Draft', 'Cancelled', 'Rejected')
+       AND ($2::uuid IS NULL OR r.package_id = $2::uuid)
      GROUP BY r.reservation_id, c.name, p.package_name
      ORDER BY r.requested_start`,
-    [date]
+    [date, packageId]
   );
   res.json(rows);
 }));

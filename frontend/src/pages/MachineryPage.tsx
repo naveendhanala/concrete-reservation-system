@@ -787,13 +787,14 @@ export default function MachineryPage() {
   const available = machinery.filter((m: Machinery) => !m.assigned_to);
   const pendingRequests = (requests as MachineryRequest[]).filter((r) => r.status === 'Pending');
 
-  const tabs: { key: Tab; label: string; count: number; pmOnly?: boolean; pmheadOnly?: boolean }[] = [
-    { key: 'all',       label: 'All Machinery',      count: machinery.length },
-    { key: 'mine',      label: 'Assigned to Me',     count: assignedToMe.length,   pmOnly: true },
-    { key: 'available', label: 'Available',           count: available.length },
-    { key: 'issues',    label: 'Machinery Issues',   count: (issues as any[]).length, pmheadOnly: true },
-    { key: 'requests',  label: 'Machinery Requests', count: isPMHead ? pendingRequests.length : (requests as any[]).length },
-  ].filter((t) => {
+  const allTabs: { key: Tab; label: string; count: number; pmOnly?: boolean; pmheadOnly?: boolean }[] = [
+    { key: 'all' as Tab,       label: 'All Machinery',      count: machinery.length },
+    { key: 'mine' as Tab,      label: 'Assigned to Me',     count: assignedToMe.length,   pmOnly: true },
+    { key: 'available' as Tab, label: 'Available',           count: available.length },
+    { key: 'issues' as Tab,    label: 'Machinery Issues',   count: (issues as any[]).length, pmheadOnly: true },
+    { key: 'requests' as Tab,  label: 'Machinery Requests', count: isPMHead ? pendingRequests.length : (requests as any[]).length },
+  ];
+  const tabs = allTabs.filter((t) => {
     if (t.pmOnly && !isPM) return false;
     if (t.pmheadOnly && !isPMHead) return false;
     if (t.key === 'requests' && !isPM && !isPMHead) return false;

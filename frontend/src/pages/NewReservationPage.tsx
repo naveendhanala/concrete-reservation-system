@@ -5,9 +5,9 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { reservationsApi, slotsApi, usersApi } from '../api/index';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { AlertCircle, Info } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
-const GRADES = ['M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M40', 'M45'];
+const GRADES = ['M10_PCC', 'M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M40', 'M45', 'M50_PSC'];
 const POURING_TYPES = ['BoomPlacer', 'ConcretePump', 'Chute', 'Manual'];
 const BATCHING_PLANTS = ['Camp-1 M3', 'Camp-2 M3', 'Camp-3 M1', 'Camp-1 CP-30'];
 
@@ -32,8 +32,6 @@ export default function NewReservationPage() {
   const [contractorSearch, setContractorSearch] = useState('');
   const [contractorOpen, setContractorOpen] = useState(false);
   const contractorRef = useRef<HTMLDivElement>(null);
-  const [splitWarning, setSplitWarning] = useState<string | null>(null);
-
   const [isSameDay, setIsSameDay] = useState(false);
 
   // Fetch today + tomorrow with their predefined shifts, filtered by selected plant
@@ -54,18 +52,6 @@ export default function NewReservationPage() {
     setIsSameDay(form.selectedDate === today);
     setForm((f) => ({ ...f, slotId: '' }));
   }, [form.selectedDate]);
-
-  // Split warning when slot + quantity selected
-  useEffect(() => {
-    if (form.slotId && form.quantity_m3) {
-      const slot = availableSlots.find((s: any) => s.slot_id === form.slotId);
-      if (slot && parseFloat(form.quantity_m3) > slot.available_m3) {
-        setSplitWarning(`Quantity exceeds shift capacity (${slot.available_m3} m³ available). Request will auto-split across consecutive shifts.`);
-      } else {
-        setSplitWarning(null);
-      }
-    }
-  }, [form.slotId, form.quantity_m3]);
 
   const { data: engineers = [] } = useQuery({
     queryKey: ['engineers', user?.packageIds?.[0]],
@@ -232,14 +218,6 @@ export default function NewReservationPage() {
                 })}
               </div>
             )}
-          </div>
-        )}
-
-        {/* Split warning */}
-        {splitWarning && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex gap-2">
-            <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-blue-700">{splitWarning}</p>
           </div>
         )}
 

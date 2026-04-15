@@ -3,10 +3,65 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportsApi } from '../api/index';
 import { useAuth } from '../context/AuthContext';
+import * as XLSX from 'xlsx';
+import toast from 'react-hot-toast';
+import { Download } from 'lucide-react';
+
+async function downloadDailyReport(date: string) {
+  if (!date) { toast.error('Please select a date'); return; }
+  const toastId = toast.loading('Generating report…');
+  try {
+    const rows: any[] = await reportsApi.daily(date);
+    if (rows.length === 0) {
+      toast.dismiss(toastId);
+      toast.error('No reservations found for this date');
+      return;
+    }
+
+    const sheetData = [
+      ['Sr.No', 'Date', 'Contractor', 'Chainage', 'Package', 'Grade',
+       'Actual Qty (m³)', 'Structure', 'Nature of Work', 'RFI ID', 'TM No.', 'Batching Plant'],
+      ...rows.map((r) => [
+        Number(r.sr_no),
+        r.date,
+        r.contractor,
+        r.chainage,
+        r.package_name,
+        r.grade,
+        r.actual_quantity_m3 != null ? Number(r.actual_quantity_m3) : '',
+        r.structure,
+        r.nature_of_work,
+        r.rfi_id,
+        r.tm_nos,
+        r.batching_plants,
+      ]),
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+    // Column widths
+    ws['!cols'] = [
+      { wch: 6 }, { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 24 },
+      { wch: 8 }, { wch: 14 }, { wch: 24 }, { wch: 28 }, { wch: 16 }, { wch: 20 }, { wch: 20 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Daily Report');
+    XLSX.writeFile(wb, `Daily_Pour_Report_${date}.xlsx`);
+    toast.dismiss(toastId);
+    toast.success(`Report downloaded — ${rows.length} reservation(s)`);
+  } catch (err: any) {
+    toast.dismiss(toastId);
+    toast.error(err.response?.data?.error || 'Failed to generate report');
+  }
+}
 
 export default function ReportsPage() {
   const { user } = useAuth();
   const isPM = user?.role === 'PM';
+  const isPMHead = user?.role === 'PMHead';
+
+  const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0]);
 
   const [range, setRange] = useState({
     from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
@@ -41,6 +96,33 @@ export default function ReportsPage() {
   return (
     <div>
       <h1 className="text-xl font-bold text-gray-900 mb-6">Reports & Analytics</h1>
+
+      {/* Daily Pour Report — PMHead only */}
+      {isPMHead && (
+        <div className="card p-4 mb-6 flex flex-wrap items-end gap-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-800 mb-1">Daily Pour Report</p>
+            <p className="text-xs text-gray-400">Download all reservations for a selected date as Excel</p>
+          </div>
+          <div className="ml-auto flex items-end gap-3">
+            <div>
+              <label className="label">Date</label>
+              <input
+                type="date"
+                className="input"
+                value={dailyDate}
+                onChange={(e) => setDailyDate(e.target.value)}
+              />
+            </div>
+            <button
+              onClick={() => downloadDailyReport(dailyDate)}
+              className="btn-primary flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Download className="w-4 h-4" /> Download Excel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Date filters */}
       <div className="card p-4 mb-6 grid grid-cols-2 sm:flex gap-3 sm:flex-wrap items-end">

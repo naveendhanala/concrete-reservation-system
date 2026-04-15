@@ -1,9 +1,13 @@
 // src/routes/report.routes.js
 const express = require('express');
 const { query } = require('../config/db');
-const { asyncHandler } = require('../middleware/errorHandler');
+const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { requireRole } = require('../middleware/auth');
 const router = express.Router();
+
+// "Pour date" logic: slots 00:00–04:59 IST belong to the PREVIOUS calendar day.
+// Achieved by subtracting 5 hours from the IST wall-clock time before extracting the date.
+const POUR_DATE = `DATE((r.requested_start AT TIME ZONE 'Asia/Kolkata') - INTERVAL '5 hours')`;
 
 // Resolve the effective package_id filter: PMs are always scoped to their own package.
 async function resolvePackageId(req) {
@@ -23,7 +27,7 @@ router.get('/sla', asyncHandler(async (req, res) => {
   const packageId = await resolvePackageId(req);
   const { rows } = await query(
     `SELECT
-       DATE(r.requested_start) AS date,
+       ${POUR_DATE} AS date,
        COUNT(*) AS total,
        COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
        COUNT(*) FILTER (WHERE r.status = 'Cancelled') AS cancelled,
@@ -31,17 +35,17 @@ router.get('/sla', asyncHandler(async (req, res) => {
        COALESCE(SUM(r.quantity_m3), 0) AS total_requested_m3,
        COALESCE(SUM(r.actual_quantity_m3) FILTER (WHERE r.status = 'Completed'), 0) AS total_actual_m3
      FROM reservations r
-     WHERE ($1::date IS NULL OR DATE(r.requested_start) >= $1)
-       AND ($2::date IS NULL OR DATE(r.requested_start) <= $2)
+     WHERE ($1::date IS NULL OR ${POUR_DATE} >= $1)
+       AND ($2::date IS NULL OR ${POUR_DATE} <= $2)
        AND ($3::uuid IS NULL OR r.package_id = $3)
-     GROUP BY DATE(r.requested_start)
+     GROUP BY ${POUR_DATE}
      ORDER BY date`,
     [from || null, to || null, packageId]
   );
   res.json(rows);
 }));
 
-// Utilization report
+// Utilization report (slot-based — no pour-date shift needed)
 router.get('/utilization', asyncHandler(async (req, res) => {
   const { from, to } = req.query;
   const { rows } = await query(
@@ -74,12 +78,52 @@ router.get('/packages', asyncHandler(async (req, res) => {
        COALESCE(SUM(r.actual_quantity_m3) FILTER (WHERE r.status = 'Completed'), 0) AS total_actual_m3
      FROM packages pkg
      LEFT JOIN reservations r ON pkg.package_id = r.package_id
-       AND ($1::date IS NULL OR DATE(r.requested_start) >= $1)
-       AND ($2::date IS NULL OR DATE(r.requested_start) <= $2)
+       AND ($1::date IS NULL OR ${POUR_DATE} >= $1)
+       AND ($2::date IS NULL OR ${POUR_DATE} <= $2)
      WHERE ($3::uuid IS NULL OR pkg.package_id = $3)
      GROUP BY pkg.package_id, pkg.package_name
      ORDER BY total_requested_m3 DESC`,
     [from || null, to || null, packageId]
+  );
+  res.json(rows);
+}));
+
+// Daily pour report — PMHead only
+router.get('/daily', requireRole('PMHead'), asyncHandler(async (req, res) => {
+  const { date } = req.query;
+  if (!date) throw new AppError('date query param is required (YYYY-MM-DD)', 400);
+
+  const { rows } = await query(
+    `SELECT
+       ROW_NUMBER() OVER (ORDER BY r.requested_start) AS sr_no,
+       ${POUR_DATE}                                    AS date,
+       COALESCE(c.name, '')                            AS contractor,
+       r.chainage,
+       p.package_name,
+       r.grade,
+       r.actual_quantity_m3,
+       r.structure,
+       r.nature_of_work,
+       COALESCE(r.rfi_id, '')                          AS rfi_id,
+       COALESCE(
+         STRING_AGG(DISTINCT d.tm_no, ', ')
+           FILTER (WHERE d.tm_no IS NOT NULL AND d.tm_no <> ''),
+         ''
+       )                                               AS tm_nos,
+       COALESCE(
+         STRING_AGG(DISTINCT d.batching_plant, ', ')
+           FILTER (WHERE d.batching_plant IS NOT NULL AND d.batching_plant <> ''),
+         ''
+       )                                               AS batching_plants
+     FROM reservations r
+     LEFT JOIN contractors c ON r.contractor_id = c.contractor_id
+     JOIN  packages p        ON r.package_id    = p.package_id
+     LEFT JOIN reservation_deliveries d ON d.reservation_id = r.reservation_id
+     WHERE ${POUR_DATE} = $1::date
+       AND r.status NOT IN ('Draft', 'Cancelled', 'Rejected')
+     GROUP BY r.reservation_id, c.name, p.package_name
+     ORDER BY r.requested_start`,
+    [date]
   );
   res.json(rows);
 }));

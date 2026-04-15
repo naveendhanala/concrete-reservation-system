@@ -172,4 +172,6 @@ export const reportsApi = {
     client.get('/reports/audit', { params }).then((r) => r.data),
   packages: (params: Record<string, any>) =>
     client.get('/reports/packages', { params }).then((r) => r.data),
+  daily: (date: string) =>
+    client.get('/reports/daily', { params: { date } }).then((r) => r.data),
 };

@@ -45,6 +45,14 @@ export default defineConfig({
       },
     }),
   ],
+  optimizeDeps: {
+    include: ['xlsx'],
+  },
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+  },
   server: {
     port: 5173,
     proxy: {

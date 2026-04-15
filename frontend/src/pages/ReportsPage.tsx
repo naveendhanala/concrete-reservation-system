@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportsApi } from '../api/index';
 import { useAuth } from '../context/AuthContext';
-import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import { Download } from 'lucide-react';
 
@@ -11,6 +10,7 @@ async function downloadDailyReport(date: string) {
   if (!date) { toast.error('Please select a date'); return; }
   const toastId = toast.loading('Generating report…');
   try {
+    const XLSX = await import('xlsx');
     const rows: any[] = await reportsApi.daily(date);
     if (rows.length === 0) {
       toast.dismiss(toastId);

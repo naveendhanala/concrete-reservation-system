@@ -320,20 +320,6 @@ export default function ReservationDetailPage() {
             )}
           </div>
 
-          {/* Slot allocations (for split reservations) */}
-          {slotAllocations.length > 1 && (
-            <div className="mt-4">
-              <p className="text-xs text-gray-500 uppercase font-medium mb-2">Split Across Slots</p>
-              <div className="space-y-1">
-                {slotAllocations.map((s: any) => (
-                  <div key={s.id} className="flex justify-between text-sm bg-blue-50 px-3 py-1.5 rounded">
-                    <span>{(s.start_time ?? '').slice(11, 16)} – {(s.end_time ?? '').slice(11, 16)}</span>
-                    <span className="font-medium">{s.allocated_m3} m³</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="card p-5">

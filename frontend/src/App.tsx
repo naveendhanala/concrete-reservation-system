@@ -17,6 +17,7 @@ import CalendarPage from './pages/CalendarPage';
 import ReportsPage from './pages/ReportsPage';
 import UsersPage from './pages/UsersPage';
 import ContractorsPage from './pages/ContractorsPage';
+import MachineryPage from './pages/MachineryPage';
 import SettingsPage from './pages/SettingsPage';
 
 import AppLayout from './components/layout/AppLayout';
@@ -102,6 +103,7 @@ export default function App() {
             <Route path="contractors" element={
               <RoleRoute roles={['Admin', 'LabourMob']}><ContractorsPage /></RoleRoute>
             } />
+            <Route path="machinery" element={<MachineryPage />} />
             <Route path="settings" element={
               <RoleRoute roles={['Admin']}><SettingsPage /></RoleRoute>
             } />

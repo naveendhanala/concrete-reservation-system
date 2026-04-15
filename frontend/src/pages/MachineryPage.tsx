@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { machineryApi, packagesApi } from '../api/index';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import * as XLSX from 'xlsx';
+
 import {
   Plus, Pencil, Trash2, X, Check, UserCheck,
   AlertTriangle, CheckCircle2, ClipboardList, Upload, Download,
@@ -340,7 +340,8 @@ const COL_MAP: Record<string, string> = {
   'last month utilization': 'last_month_utilization',
 };
 
-function downloadTemplate() {
+async function downloadTemplate() {
+  const XLSX = await import('xlsx');
   const ws = XLSX.utils.aoa_to_sheet([UPLOAD_COLUMNS]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Machinery');
@@ -377,7 +378,8 @@ function UploadModal({ onClose }: { onClose: () => void }) {
   const parseFile = (file: File) => {
     setFileName(file.name);
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
+      const XLSX = await import('xlsx');
       const data = new Uint8Array(e.target?.result as ArrayBuffer);
       const wb = XLSX.read(data, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];

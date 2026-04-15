@@ -25,11 +25,7 @@ types.setTypeParser(1184, (val) => {
   );
 }); // TIMESTAMPTZ → "YYYY-MM-DD HH:MM:SS" in IST
 
-// Strip sslmode from URL so the explicit ssl object below takes full control.
-// Neon connection strings include sslmode=require which the new pg version
-// treats as verify-full, causing SSL handshake failures.
-const rawUrl = process.env.DATABASE_URL || process.env.reservations_DATABASE_URL;
-const dbUrl = rawUrl ? rawUrl.replace(/[?&]sslmode=[^&]*/g, (m) => m.startsWith('?') ? '?' : '') : null;
+const dbUrl = process.env.DATABASE_URL || process.env.reservations_DATABASE_URL || null;
 
 const pool = new Pool(
   dbUrl

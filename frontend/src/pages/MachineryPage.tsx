@@ -847,7 +847,7 @@ export default function MachineryPage() {
           return (
             <button
               key={t.key}
-              onClick={() => switchTab(t.key)}
+              onClick={() => switchTab(t.key as Tab)}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px flex items-center gap-1.5 ${
                 activeTab === t.key
                   ? 'border-primary-600 text-primary-700'

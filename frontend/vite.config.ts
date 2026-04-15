@@ -13,6 +13,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectManifest: {
         injectionPoint: undefined,
+        rollupOptions: {
+          external: ['xlsx'],
+        },
       },
       devOptions: {
         enabled: true,

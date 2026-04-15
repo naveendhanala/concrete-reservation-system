@@ -32,7 +32,7 @@ router.get('/sla', asyncHandler(async (req, res) => {
        COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
        COUNT(*) FILTER (WHERE r.status = 'Cancelled') AS cancelled,
        COUNT(*) FILTER (WHERE r.status = 'Completed' AND r.completed_at <= r.requested_end) AS on_time,
-       COALESCE(SUM(r.quantity_m3), 0) AS total_requested_m3,
+       COALESCE(SUM(r.quantity_m3) FILTER (WHERE r.status NOT IN ('Cancelled', 'Rejected', 'Draft')), 0) AS total_requested_m3,
        COALESCE(SUM(r.actual_quantity_m3) FILTER (WHERE r.status = 'Completed'), 0) AS total_actual_m3
      FROM reservations r
      WHERE ($1::date IS NULL OR ${POUR_DATE} >= $1)
@@ -74,7 +74,7 @@ router.get('/packages', asyncHandler(async (req, res) => {
        COUNT(r.reservation_id) AS total,
        COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
        COUNT(*) FILTER (WHERE r.status = 'Cancelled') AS cancelled,
-       COALESCE(SUM(r.quantity_m3), 0) AS total_requested_m3,
+       COALESCE(SUM(r.quantity_m3) FILTER (WHERE r.status NOT IN ('Cancelled', 'Rejected', 'Draft')), 0) AS total_requested_m3,
        COALESCE(SUM(r.actual_quantity_m3) FILTER (WHERE r.status = 'Completed'), 0) AS total_actual_m3
      FROM packages pkg
      LEFT JOIN reservations r ON pkg.package_id = r.package_id

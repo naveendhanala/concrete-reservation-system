@@ -116,7 +116,7 @@ exports.pmHeadDashboard = asyncHandler(async (req, res) => {
 exports.vpDashboard = asyncHandler(async (req, res) => {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
-  const [slaStats, packageStats, pendingApprovals, capacityTrend] = await Promise.all([
+  const [slaStats, packageStats, pendingApprovals, capacityTrend, pmSameDayCounts] = await Promise.all([
     // SLA / On-time delivery
     query(
       `SELECT
@@ -168,6 +168,17 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
        ORDER BY s.slot_date`,
       [thirtyDaysAgo]
     ),
+    // Same-day request counts per PM
+    query(
+      `SELECT u.user_id, u.name, u.same_day_request_count,
+              COALESCE(STRING_AGG(p.package_name, ', ' ORDER BY p.package_name), '—') AS packages
+       FROM users u
+       LEFT JOIN user_packages up ON u.user_id = up.user_id
+       LEFT JOIN packages p ON up.package_id = p.package_id
+       WHERE u.role = 'PM'
+       GROUP BY u.user_id, u.name, u.same_day_request_count
+       ORDER BY u.same_day_request_count DESC, u.name`
+    ),
   ]);
 
   const sla = slaStats.rows[0];
@@ -184,6 +195,7 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
     packageStats: packageStats.rows,
     pendingApprovals: pendingApprovals.rows,
     capacityTrend: capacityTrend.rows,
+    pmSameDayCounts: pmSameDayCounts.rows,
   });
 });
 

@@ -124,6 +124,38 @@ function VPDashboard() {
           ))}
         </div>
       )}
+
+      <div className="card p-5">
+        <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-orange-500" /> Same-Day Requests by PM
+        </h3>
+        {data?.pmSameDayCounts?.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">No same-day requests yet.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs text-gray-500 border-b">
+                <th className="pb-2 font-medium">PM Name</th>
+                <th className="pb-2 font-medium">Package</th>
+                <th className="pb-2 font-medium text-right">Same-Day Requests</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.pmSameDayCounts.map((pm: any) => (
+                <tr key={pm.user_id} className="border-b last:border-0">
+                  <td className="py-2 text-gray-900">{pm.name}</td>
+                  <td className="py-2 text-gray-500 text-xs">{pm.packages}</td>
+                  <td className="py-2 text-right">
+                    <span className={`font-semibold ${pm.same_day_request_count > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
+                      {pm.same_day_request_count}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

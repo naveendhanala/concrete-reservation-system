@@ -118,7 +118,16 @@ exports.getById = asyncHandler(async (req, res) => {
     [req.params.id]
   );
 
-  res.json({ ...rows[0], deliveries });
+  const { rows: modifications } = await query(
+    `SELECT rh.changed_at, rh.reason_text, u.name AS changed_by_name
+     FROM reservation_history rh
+     JOIN users u ON rh.changed_by = u.user_id
+     WHERE rh.reservation_id = $1 AND rh.change_type = 'Modified'
+     ORDER BY rh.changed_at`,
+    [req.params.id]
+  );
+
+  res.json({ ...rows[0], deliveries, modifications });
 });
 
 // ── CREATE ────────────────────────────────────────────────────────────────────
@@ -300,7 +309,7 @@ exports.proposeAlternative = asyncHandler(async (req, res) => {
 exports.modify = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const user = req.user;
-  const { quantity_m3, slotId, reason } = req.body;
+  const { quantity_m3, slotId, reason, rfi_id } = req.body;
 
   const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
   if (!existing[0]) throw new AppError('Reservation not found', 404);
@@ -323,22 +332,32 @@ exports.modify = asyncHandler(async (req, res) => {
 
   // Recompute allocation — exclude this reservation's own booking from the capacity check
   const targetSlotId = slotId || firstSlotId;
-  const targetQty = quantity_m3 || existing[0].quantity_m3;
+  const targetQty = quantity_m3 !== undefined ? parseFloat(quantity_m3) : existing[0].quantity_m3;
+  const targetRfiId = rfi_id !== undefined ? (rfi_id.trim() || null) : existing[0].rfi_id;
   const allocation = await capacityService.computeSlotAllocation(targetSlotId, targetQty, id);
+
+  // Build a structured diff of what changed
+  const changes = [];
+  if (parseFloat(targetQty) !== parseFloat(existing[0].quantity_m3)) {
+    changes.push({ field: 'Quantity (m³)', from: String(existing[0].quantity_m3), to: String(targetQty) });
+  }
+  if (targetRfiId !== (existing[0].rfi_id || null)) {
+    changes.push({ field: 'RFI ID', from: existing[0].rfi_id || '—', to: targetRfiId || '—' });
+  }
 
   await withTransaction(async (client) => {
     await client.query('DELETE FROM reservation_slot_mappings WHERE reservation_id = $1', [id]);
     await capacityService.applySlotAllocations(client, id, allocation);
 
     await client.query(
-      `UPDATE reservations SET quantity_m3 = $1, version = version + 1, status = 'Submitted'
-       WHERE reservation_id = $2`,
-      [targetQty, id]
+      `UPDATE reservations SET quantity_m3 = $1, rfi_id = $2, version = version + 1
+       WHERE reservation_id = $3`,
+      [targetQty, targetRfiId, id]
     );
     await client.query(
       `INSERT INTO reservation_history (reservation_id, changed_by, change_type, reason_text, snapshot)
-       VALUES ($1, $2, 'QuantityChange', $3, $4)`,
-      [id, user.user_id, reason, JSON.stringify(existing[0])]
+       VALUES ($1, $2, 'Modified', $3, $4)`,
+      [id, user.user_id, JSON.stringify({ reason, changes }), JSON.stringify(existing[0])]
     );
   });
 

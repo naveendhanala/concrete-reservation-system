@@ -48,6 +48,7 @@ export default function ReservationDetailPage() {
   const [editingDelivery, setEditingDelivery] = useState<{ id: string; qty: string; tm_no: string; driver_no: string; batching_plant: string } | null>(null);
   const [showModify, setShowModify] = useState(false);
   const [modifyQty, setModifyQty] = useState('');
+  const [modifyRfiId, setModifyRfiId] = useState('');
   const [modifyReason, setModifyReason] = useState('');
 
   const { data: reservation, isLoading } = useQuery({
@@ -119,11 +120,12 @@ export default function ReservationDetailPage() {
   });
 
   const modifyMutation = useMutation({
-    mutationFn: () => reservationsApi.modify(id!, { quantity_m3: parseFloat(modifyQty), reason: modifyReason }),
+    mutationFn: () => reservationsApi.modify(id!, { quantity_m3: parseFloat(modifyQty), rfi_id: modifyRfiId, reason: modifyReason }),
     onSuccess: () => {
       toast.success('Reservation updated — re-submitted for acknowledgement');
       setShowModify(false);
       setModifyQty('');
+      setModifyRfiId('');
       setModifyReason('');
       queryClient.invalidateQueries({ queryKey: ['reservation', id] });
       queryClient.invalidateQueries({ queryKey: ['reservations'] });
@@ -192,7 +194,7 @@ export default function ReservationDetailPage() {
             </button>
           )}
           {canModify && (
-            <button onClick={() => { setModifyQty(reservation.quantity_m3?.toString() || ''); setShowModify(true); }}
+            <button onClick={() => { setModifyQty(reservation.quantity_m3?.toString() || ''); setModifyRfiId(reservation.rfi_id || ''); setShowModify(true); }}
               className="btn-secondary flex items-center gap-1.5 text-xs">
               <Pencil className="w-4 h-4" /> Modify
             </button>
@@ -318,6 +320,24 @@ export default function ReservationDetailPage() {
             {reservation.completed_at && (
               <TimelineRow label="Completed" value={(reservation.completed_at ?? '').slice(0, 16)} highlight="emerald" />
             )}
+            {(reservation.modifications ?? []).map((m: any, i: number) => {
+              let parsed: { reason?: string; changes?: { field: string; from: string; to: string }[] } = {};
+              try { parsed = JSON.parse(m.reason_text); } catch { parsed = {}; }
+              return (
+                <div key={i} className="flex items-start gap-2">
+                  <div className="mt-1 w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-gray-700">
+                      Modified by {m.changed_by_name} · {(m.changed_at ?? '').slice(0, 16)}
+                    </p>
+                    {(parsed.changes ?? []).map((c, j) => (
+                      <p key={j} className="text-xs text-gray-500">{c.field}: <span className="line-through text-red-400">{c.from}</span> → <span className="text-green-600">{c.to}</span></p>
+                    ))}
+                    {parsed.reason && <p className="text-xs text-gray-400 italic">"{parsed.reason}"</p>}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
         </div>
@@ -409,6 +429,14 @@ export default function ReservationDetailPage() {
               className="input mt-1 mb-3"
               value={modifyQty}
               onChange={(e) => setModifyQty(e.target.value)}
+            />
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">RFI ID</label>
+            <input
+              type="text"
+              className="input mt-1 mb-3"
+              placeholder="Optional"
+              value={modifyRfiId}
+              onChange={(e) => setModifyRfiId(e.target.value)}
             />
             <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Reason for change</label>
             <textarea

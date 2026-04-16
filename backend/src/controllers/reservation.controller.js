@@ -393,20 +393,6 @@ exports.cancel = asyncHandler(async (req, res) => {
     throw new AppError('Already completed or cancelled', 400);
   }
 
-  // Block PM cancellations past cutoff (PMHead can still cancel)
-  if (user.role === 'PM') {
-    const { rows: mappings } = await query(
-      'SELECT slot_id FROM reservation_slot_mappings WHERE reservation_id = $1 ORDER BY slot_id LIMIT 1',
-      [id]
-    );
-    if (mappings[0]) {
-      const isPastCutoff = await capacityService.isPastCutoff(mappings[0].slot_id);
-      if (isPastCutoff) {
-        throw new AppError('Cancellation is past cutoff. Please contact P&M for assistance.', 400);
-      }
-    }
-  }
-
   await withTransaction(async (client) => {
     await client.query('DELETE FROM reservation_slot_mappings WHERE reservation_id = $1', [id]);
     await client.query(

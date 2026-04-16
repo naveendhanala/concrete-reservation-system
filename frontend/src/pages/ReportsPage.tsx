@@ -112,7 +112,9 @@ export default function ReportsPage() {
   const isPMHead = user?.role === 'PMHead';
   const isAdmin = user?.role === 'Admin';
   const isPMManager = user?.role === 'PMManager';
-  const canDownloadDaily = isPMHead || isPMManager || isPM || isAdmin;
+  const isClusterHead = user?.role === 'ClusterHead';
+  const isVP = user?.role === 'VP';
+  const canDownloadDaily = isPMHead || isPMManager || isPM || isAdmin || isClusterHead || isVP;
 
   const [dailyDate, setDailyDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -150,7 +152,7 @@ export default function ReportsPage() {
     <div>
       <h1 className="text-xl font-bold text-gray-900 mb-6">Reports & Analytics</h1>
 
-      {/* Daily Pour Report — PMHead, PM, Admin */}
+      {/* Daily Pour Report — PMHead, PMManager, PM, Admin, ClusterHead, VP */}
       {canDownloadDaily && (
         <div className="card p-4 mb-6 flex flex-wrap items-end gap-3">
           <div>

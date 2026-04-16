@@ -121,8 +121,8 @@ router.get('/packages', asyncHandler(async (req, res) => {
   res.json(rows);
 }));
 
-// Daily pour report — PMHead, PM, Admin
-router.get('/daily', requireRole('PMHead', 'PMManager', 'PM', 'Admin'), asyncHandler(async (req, res) => {
+// Daily pour report — PMHead, PMManager, PM, Admin, ClusterHead, VP
+router.get('/daily', requireRole('PMHead', 'PMManager', 'PM', 'Admin', 'ClusterHead', 'VP'), asyncHandler(async (req, res) => {
   const { date } = req.query;
   if (!date) throw new AppError('date query param is required (YYYY-MM-DD)', 400);
 
@@ -164,8 +164,8 @@ router.get('/daily', requireRole('PMHead', 'PMManager', 'PM', 'Admin'), asyncHan
   res.json(rows);
 }));
 
-// Delivery log report — PMHead, PMManager, PM, Admin
-router.get('/deliveries', requireRole('PMHead', 'PMManager', 'PM', 'Admin'), asyncHandler(async (req, res) => {
+// Delivery log report — PMHead, PMManager, PM, Admin, ClusterHead, VP
+router.get('/deliveries', requireRole('PMHead', 'PMManager', 'PM', 'Admin', 'ClusterHead', 'VP'), asyncHandler(async (req, res) => {
   const { from, to } = req.query;
   const packageId = await resolvePackageId(req);
 

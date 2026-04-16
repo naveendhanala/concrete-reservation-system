@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ClipboardList, CheckSquare, Calendar,
   BarChart2, Users, Settings, LogOut, Bell, HardHat, Menu, X, Building2, Wrench
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsApi } from '../../api/index';
 
@@ -27,7 +27,54 @@ export default function AppLayout() {
   const queryClient = useQueryClient();
   const [notifOpen, setNotifOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const touchStartY = useRef(0);
+  const pulling = useRef(false);
+
+  const PULL_THRESHOLD = 70;
+
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    if (mainRef.current && mainRef.current.scrollTop === 0) {
+      touchStartY.current = e.touches[0].clientY;
+      pulling.current = true;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (!pulling.current) return;
+    const delta = e.touches[0].clientY - touchStartY.current;
+    if (delta > 0) {
+      e.preventDefault();
+      setPullDistance(Math.min(delta, PULL_THRESHOLD * 1.5));
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (!pulling.current) return;
+    pulling.current = false;
+    if (pullDistance >= PULL_THRESHOLD) {
+      setRefreshing(true);
+      await queryClient.invalidateQueries();
+      setRefreshing(false);
+    }
+    setPullDistance(0);
+  }, [pullDistance, queryClient]);
+
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+    el.addEventListener('touchstart', handleTouchStart, { passive: true });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd);
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications'],
@@ -206,7 +253,23 @@ export default function AppLayout() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main ref={mainRef} className="flex-1 overflow-y-auto p-6">
+          {/* Pull-to-refresh indicator */}
+          {(pullDistance > 0 || refreshing) && (
+            <div
+              className="flex items-center justify-center text-primary-600 text-xs font-medium gap-1.5 transition-all"
+              style={{ height: refreshing ? 36 : pullDistance * 0.5, overflow: 'hidden' }}
+            >
+              <svg
+                className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
+                style={{ transform: refreshing ? undefined : `rotate(${(pullDistance / PULL_THRESHOLD) * 180}deg)` }}
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              >
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {refreshing ? 'Refreshing…' : pullDistance >= PULL_THRESHOLD ? 'Release to refresh' : 'Pull to refresh'}
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

@@ -1,4 +1,5 @@
 // src/pages/ReservationDetailPage.tsx
+const GRADES = ['M10_PCC', 'M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M40', 'M45', 'M50_PSC'];
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reservationsApi } from '../api/index';
@@ -48,6 +49,7 @@ export default function ReservationDetailPage() {
   const [editingDelivery, setEditingDelivery] = useState<{ id: string; qty: string; tm_no: string; driver_no: string; batching_plant: string } | null>(null);
   const [showModify, setShowModify] = useState(false);
   const [modifyQty, setModifyQty] = useState('');
+  const [modifyGrade, setModifyGrade] = useState('');
   const [modifyRfiId, setModifyRfiId] = useState('');
   const [modifyReason, setModifyReason] = useState('');
 
@@ -120,11 +122,12 @@ export default function ReservationDetailPage() {
   });
 
   const modifyMutation = useMutation({
-    mutationFn: () => reservationsApi.modify(id!, { quantity_m3: parseFloat(modifyQty), rfi_id: modifyRfiId, reason: modifyReason }),
+    mutationFn: () => reservationsApi.modify(id!, { quantity_m3: parseFloat(modifyQty), grade: modifyGrade, rfi_id: modifyRfiId, reason: modifyReason }),
     onSuccess: () => {
       toast.success('Reservation updated — re-submitted for acknowledgement');
       setShowModify(false);
       setModifyQty('');
+      setModifyGrade('');
       setModifyRfiId('');
       setModifyReason('');
       queryClient.invalidateQueries({ queryKey: ['reservation', id] });
@@ -148,7 +151,7 @@ export default function ReservationDetailPage() {
 
   const isPMOps = user?.role === 'PMHead' || user?.role === 'PMManager';
   const canAcknowledge = isPMOps && reservation.status === 'Submitted';
-  const canModify = user?.role === 'PM' && reservation.requester_id === user.userId && !['Started', 'Completed', 'Cancelled', 'Rejected'].includes(reservation.status);
+  const canModify = user?.role === 'PM' && reservation.requester_id === user.userId && !['Completed', 'Cancelled', 'Rejected'].includes(reservation.status);
   const canStart = user?.role === 'PM' && reservation.requester_id === user.userId && reservation.status === 'Acknowledged';
   const canAddDelivery = isPMOps && reservation.status === 'Started';
   const canComplete = user?.role === 'PM' && reservation.requester_id === user.userId && reservation.status === 'Started';
@@ -194,7 +197,7 @@ export default function ReservationDetailPage() {
             </button>
           )}
           {canModify && (
-            <button onClick={() => { setModifyQty(reservation.quantity_m3?.toString() || ''); setModifyRfiId(reservation.rfi_id || ''); setShowModify(true); }}
+            <button onClick={() => { setModifyQty(reservation.quantity_m3?.toString() || ''); setModifyGrade(reservation.grade || ''); setModifyRfiId(reservation.rfi_id || ''); setShowModify(true); }}
               className="btn-secondary flex items-center gap-1.5 text-xs">
               <Pencil className="w-4 h-4" /> Modify
             </button>
@@ -430,6 +433,14 @@ export default function ReservationDetailPage() {
               value={modifyQty}
               onChange={(e) => setModifyQty(e.target.value)}
             />
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Grade</label>
+            <select
+              className="input mt-1 mb-3"
+              value={modifyGrade}
+              onChange={(e) => setModifyGrade(e.target.value)}
+            >
+              {GRADES.map((g) => <option key={g} value={g}>{g.replace(/_/g, ' ')}</option>)}
+            </select>
             <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">RFI ID</label>
             <input
               type="text"

@@ -309,7 +309,7 @@ exports.proposeAlternative = asyncHandler(async (req, res) => {
 exports.modify = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const user = req.user;
-  const { quantity_m3, slotId, reason, rfi_id } = req.body;
+  const { quantity_m3, slotId, reason, rfi_id, grade } = req.body;
 
   const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
   if (!existing[0]) throw new AppError('Reservation not found', 404);
@@ -317,6 +317,8 @@ exports.modify = asyncHandler(async (req, res) => {
   if (['Completed', 'Cancelled', 'Rejected'].includes(existing[0].status)) {
     throw new AppError('Cannot modify a completed, cancelled, or rejected reservation', 400);
   }
+  // Started reservations skip the cutoff check (pour is already in progress)
+  const skipCutoff = existing[0].status === 'Started';
 
   // Get first slot
   const { rows: mappings } = await query(
@@ -325,14 +327,17 @@ exports.modify = asyncHandler(async (req, res) => {
   );
   const firstSlotId = slotId || mappings[0]?.slot_id;
 
-  const isPastCutoff = await capacityService.isPastCutoff(firstSlotId);
-  if (isPastCutoff) {
-    throw new AppError('Modification is past cutoff. Please contact P&M for assistance.', 400);
+  if (!skipCutoff) {
+    const isPastCutoff = await capacityService.isPastCutoff(firstSlotId);
+    if (isPastCutoff) {
+      throw new AppError('Modification is past cutoff. Please contact P&M for assistance.', 400);
+    }
   }
 
   // Recompute allocation — exclude this reservation's own booking from the capacity check
   const targetSlotId = slotId || firstSlotId;
   const targetQty = quantity_m3 !== undefined ? parseFloat(quantity_m3) : existing[0].quantity_m3;
+  const targetGrade = grade !== undefined ? grade : existing[0].grade;
   const targetRfiId = rfi_id !== undefined ? (rfi_id.trim() || null) : existing[0].rfi_id;
   const allocation = await capacityService.computeSlotAllocation(targetSlotId, targetQty, id);
 
@@ -340,6 +345,9 @@ exports.modify = asyncHandler(async (req, res) => {
   const changes = [];
   if (parseFloat(targetQty) !== parseFloat(existing[0].quantity_m3)) {
     changes.push({ field: 'Quantity (m³)', from: String(existing[0].quantity_m3), to: String(targetQty) });
+  }
+  if (targetGrade !== existing[0].grade) {
+    changes.push({ field: 'Grade', from: existing[0].grade || '—', to: targetGrade || '—' });
   }
   if (targetRfiId !== (existing[0].rfi_id || null)) {
     changes.push({ field: 'RFI ID', from: existing[0].rfi_id || '—', to: targetRfiId || '—' });
@@ -350,9 +358,9 @@ exports.modify = asyncHandler(async (req, res) => {
     await capacityService.applySlotAllocations(client, id, allocation);
 
     await client.query(
-      `UPDATE reservations SET quantity_m3 = $1, rfi_id = $2, version = version + 1
-       WHERE reservation_id = $3`,
-      [targetQty, targetRfiId, id]
+      `UPDATE reservations SET quantity_m3 = $1, grade = $2, rfi_id = $3, version = version + 1
+       WHERE reservation_id = $4`,
+      [targetQty, targetGrade, targetRfiId, id]
     );
     await client.query(
       `INSERT INTO reservation_history (reservation_id, changed_by, change_type, reason_text, snapshot)

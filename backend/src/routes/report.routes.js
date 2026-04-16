@@ -26,21 +26,43 @@ router.get('/sla', asyncHandler(async (req, res) => {
   const { from, to } = req.query;
   const packageId = await resolvePackageId(req);
   const { rows } = await query(
-    `SELECT
-       ${POUR_DATE} AS date,
-       COUNT(*) AS total,
-       COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
-       COUNT(*) FILTER (WHERE r.status = 'Cancelled') AS cancelled,
-       COUNT(*) FILTER (WHERE r.status = 'Completed' AND r.completed_at <= r.requested_end) AS on_time,
-       COALESCE(SUM(r.quantity_m3) FILTER (WHERE r.status NOT IN ('Cancelled', 'Rejected', 'Draft')), 0) AS total_requested_m3,
-       COALESCE(SUM(r.actual_quantity_m3) FILTER (WHERE r.status = 'Completed'), 0) AS total_actual_m3
-     FROM reservations r
-     WHERE ($1::date IS NULL OR ${POUR_DATE} >= $1)
-       AND ($2::date IS NULL OR ${POUR_DATE} <= $2)
-       AND ($3::uuid IS NULL OR r.package_id = $3)
-     GROUP BY ${POUR_DATE}
+    `WITH reservation_stats AS (
+       SELECT
+         ${POUR_DATE} AS date,
+         COUNT(*) AS total,
+         COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
+         COUNT(*) FILTER (WHERE r.status = 'Cancelled') AS cancelled,
+         COUNT(*) FILTER (WHERE r.status = 'Completed' AND r.completed_at <= r.requested_end) AS on_time,
+         COALESCE(SUM(r.quantity_m3) FILTER (WHERE r.status NOT IN ('Cancelled', 'Rejected', 'Draft')), 0) AS total_requested_m3
+       FROM reservations r
+       WHERE ($1::date IS NULL OR ${POUR_DATE} >= $1)
+         AND ($2::date IS NULL OR ${POUR_DATE} <= $2)
+         AND ($3::uuid IS NULL OR r.package_id = $3)
+       GROUP BY ${POUR_DATE}
+     ),
+     delivery_stats AS (
+       SELECT
+         DATE((d.delivered_at AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 hours') AS date,
+         COALESCE(SUM(d.quantity_m3), 0) AS total_actual_m3
+       FROM reservation_deliveries d
+       JOIN reservations r ON d.reservation_id = r.reservation_id
+       WHERE ($4::date IS NULL OR DATE((d.delivered_at AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 hours') >= $4)
+         AND ($5::date IS NULL OR DATE((d.delivered_at AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 hours') <= $5)
+         AND ($6::uuid IS NULL OR r.package_id = $6)
+       GROUP BY DATE((d.delivered_at AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 hours')
+     )
+     SELECT
+       COALESCE(rs.date, ds.date)              AS date,
+       COALESCE(rs.total, 0)                   AS total,
+       COALESCE(rs.completed, 0)               AS completed,
+       COALESCE(rs.cancelled, 0)               AS cancelled,
+       COALESCE(rs.on_time, 0)                 AS on_time,
+       COALESCE(rs.total_requested_m3, 0)      AS total_requested_m3,
+       COALESCE(ds.total_actual_m3, 0)         AS total_actual_m3
+     FROM reservation_stats rs
+     FULL OUTER JOIN delivery_stats ds ON rs.date = ds.date
      ORDER BY date`,
-    [from || null, to || null, packageId]
+    [from || null, to || null, packageId, from || null, to || null, packageId]
   );
   res.json(rows);
 }));
@@ -70,20 +92,31 @@ router.get('/packages', asyncHandler(async (req, res) => {
   const { from, to } = req.query;
   const packageId = await resolvePackageId(req);
   const { rows } = await query(
-    `SELECT pkg.package_name,
+    `WITH delivery_actuals AS (
+       SELECT r.package_id,
+         COALESCE(SUM(d.quantity_m3), 0) AS total_actual_m3
+       FROM reservation_deliveries d
+       JOIN reservations r ON d.reservation_id = r.reservation_id
+       WHERE ($1::date IS NULL OR DATE((d.delivered_at AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 hours') >= $1)
+         AND ($2::date IS NULL OR DATE((d.delivered_at AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 hours') <= $2)
+         AND ($3::uuid IS NULL OR r.package_id = $3)
+       GROUP BY r.package_id
+     )
+     SELECT pkg.package_name,
        COUNT(r.reservation_id) AS total,
        COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
        COUNT(*) FILTER (WHERE r.status = 'Cancelled') AS cancelled,
        COALESCE(SUM(r.quantity_m3) FILTER (WHERE r.status NOT IN ('Cancelled', 'Rejected', 'Draft')), 0) AS total_requested_m3,
-       COALESCE(SUM(r.actual_quantity_m3) FILTER (WHERE r.status = 'Completed'), 0) AS total_actual_m3
+       COALESCE(da.total_actual_m3, 0) AS total_actual_m3
      FROM packages pkg
      LEFT JOIN reservations r ON pkg.package_id = r.package_id
-       AND ($1::date IS NULL OR ${POUR_DATE} >= $1)
-       AND ($2::date IS NULL OR ${POUR_DATE} <= $2)
-     WHERE ($3::uuid IS NULL OR pkg.package_id = $3)
-     GROUP BY pkg.package_id, pkg.package_name
+       AND ($4::date IS NULL OR ${POUR_DATE} >= $4)
+       AND ($5::date IS NULL OR ${POUR_DATE} <= $5)
+     LEFT JOIN delivery_actuals da ON da.package_id = pkg.package_id
+     WHERE ($6::uuid IS NULL OR pkg.package_id = $6)
+     GROUP BY pkg.package_id, pkg.package_name, da.total_actual_m3
      ORDER BY total_requested_m3 DESC`,
-    [from || null, to || null, packageId]
+    [from || null, to || null, packageId, from || null, to || null, packageId]
   );
   res.json(rows);
 }));
@@ -158,8 +191,8 @@ router.get('/deliveries', requireRole('PMHead', 'PMManager', 'PM', 'Admin'), asy
      JOIN packages p         ON r.package_id      = p.package_id
      LEFT JOIN contractors c ON r.contractor_id   = c.contractor_id
      JOIN users u            ON d.delivered_by    = u.user_id
-     WHERE ($1::date IS NULL OR DATE(d.delivered_at AT TIME ZONE 'Asia/Kolkata') >= $1)
-       AND ($2::date IS NULL OR DATE(d.delivered_at AT TIME ZONE 'Asia/Kolkata') <= $2)
+     WHERE ($1::date IS NULL OR DATE((d.delivered_at AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 hours') >= $1)
+       AND ($2::date IS NULL OR DATE((d.delivered_at AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 hours') <= $2)
        AND ($3::uuid IS NULL OR r.package_id = $3)
      ORDER BY d.delivered_at`,
     [from || null, to || null, packageId]

@@ -26,16 +26,6 @@ function AppWithPush({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { showBanner, enablePush, dismissBanner } = usePushNotifications(!!user);
 
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
-    const handler = (event: MessageEvent) => {
-      if (event.data?.type === 'PUSH_RECEIVED') {
-        toast.success(`[Debug] SW received push: "${event.data.title}"`, { duration: 10000 });
-      }
-    };
-    navigator.serviceWorker.addEventListener('message', handler);
-    return () => navigator.serviceWorker.removeEventListener('message', handler);
-  }, []);
   return (
     <>
       {children}

@@ -21,19 +21,7 @@ self.addEventListener('push', (event) => {
     data: { url },
   };
 
-  // Notify any open app windows so we can confirm SW received the push
-  const notifyClients = self.clients
-    .matchAll({ type: 'window', includeUncontrolled: true })
-    .then((clients) => {
-      clients.forEach((c) => c.postMessage({ type: 'PUSH_RECEIVED', title, body }));
-    });
-
-  event.waitUntil(
-    Promise.all([
-      self.registration.showNotification(title, options),
-      notifyClients,
-    ])
-  );
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
 // Notification clicked — open / focus the app

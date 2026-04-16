@@ -131,6 +131,42 @@ router.get('/daily', requireRole('PMHead', 'PMManager', 'PM', 'Admin'), asyncHan
   res.json(rows);
 }));
 
+// Delivery log report — PMHead, PMManager, PM, Admin
+router.get('/deliveries', requireRole('PMHead', 'PMManager', 'PM', 'Admin'), asyncHandler(async (req, res) => {
+  const { from, to } = req.query;
+  const packageId = await resolvePackageId(req);
+
+  const { rows } = await query(
+    `SELECT
+       ROW_NUMBER() OVER (ORDER BY d.delivered_at) AS sr_no,
+       (d.delivered_at AT TIME ZONE 'Asia/Kolkata')  AS delivered_at,
+       r.reservation_number,
+       COALESCE(c.name, '')                           AS contractor,
+       r.chainage,
+       p.package_name,
+       r.grade,
+       r.structure,
+       r.nature_of_work,
+       COALESCE(r.rfi_id, '')                         AS rfi_id,
+       d.quantity_m3,
+       d.tm_no,
+       d.driver_no,
+       d.batching_plant,
+       u.name                                         AS logged_by
+     FROM reservation_deliveries d
+     JOIN reservations r     ON d.reservation_id  = r.reservation_id
+     JOIN packages p         ON r.package_id      = p.package_id
+     LEFT JOIN contractors c ON r.contractor_id   = c.contractor_id
+     JOIN users u            ON d.delivered_by    = u.user_id
+     WHERE ($1::date IS NULL OR DATE(d.delivered_at AT TIME ZONE 'Asia/Kolkata') >= $1)
+       AND ($2::date IS NULL OR DATE(d.delivered_at AT TIME ZONE 'Asia/Kolkata') <= $2)
+       AND ($3::uuid IS NULL OR r.package_id = $3)
+     ORDER BY d.delivered_at`,
+    [from || null, to || null, packageId]
+  );
+  res.json(rows);
+}));
+
 // Audit log
 router.get('/audit', requireRole('Admin'), asyncHandler(async (req, res) => {
   const { entity, userId, from, to } = req.query;

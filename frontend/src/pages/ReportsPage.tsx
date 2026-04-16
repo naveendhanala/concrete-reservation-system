@@ -56,6 +56,56 @@ async function downloadDailyReport(date: string) {
   }
 }
 
+async function downloadDeliveryReport(from: string, to: string) {
+  if (!from || !to) { toast.error('Please select a date range'); return; }
+  const toastId = toast.loading('Generating report…');
+  try {
+    const XLSX = await import('xlsx');
+    const rows: any[] = await reportsApi.deliveries({ from, to });
+    if (rows.length === 0) {
+      toast.dismiss(toastId);
+      toast.error('No delivery logs found for this range');
+      return;
+    }
+
+    const sheetData = [
+      ['Sr.No', 'Delivered At', 'Reservation No.', 'Contractor', 'Chainage', 'Package', 'Grade',
+       'Structure', 'Nature of Work', 'RFI ID', 'Qty (m³)', 'TM No.', 'Driver No.', 'Batching Plant', 'Logged By'],
+      ...rows.map((r) => [
+        Number(r.sr_no),
+        r.delivered_at ? new Date(r.delivered_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '',
+        r.reservation_number,
+        r.contractor,
+        r.chainage,
+        r.package_name,
+        r.grade,
+        r.structure,
+        r.nature_of_work,
+        r.rfi_id,
+        r.quantity_m3 != null ? Number(r.quantity_m3) : '',
+        r.tm_no,
+        r.driver_no,
+        r.batching_plant,
+        r.logged_by,
+      ]),
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    ws['!cols'] = [
+      { wch: 6 }, { wch: 20 }, { wch: 16 }, { wch: 24 }, { wch: 14 }, { wch: 24 },
+      { wch: 10 }, { wch: 24 }, { wch: 28 }, { wch: 16 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 20 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Delivery Logs');
+    XLSX.writeFile(wb, `Delivery_Log_Report_${from}_to_${to}.xlsx`);
+    toast.dismiss(toastId);
+    toast.success(`Report downloaded — ${rows.length} delivery log(s)`);
+  } catch (err: any) {
+    toast.dismiss(toastId);
+    toast.error(err.response?.data?.error || 'Failed to generate report');
+  }
+}
+
 export default function ReportsPage() {
   const { user } = useAuth();
   const isPM = user?.role === 'PM';
@@ -119,6 +169,34 @@ export default function ReportsPage() {
             </div>
             <button
               onClick={() => downloadDailyReport(dailyDate)}
+              className="btn-primary flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Download className="w-4 h-4" /> Download Excel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delivery Log Report */}
+      {canDownloadDaily && (
+        <div className="card p-4 mb-6 flex flex-wrap items-end gap-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-800 mb-1">Delivery Log Report</p>
+            <p className="text-xs text-gray-400">Download all delivery trips logged in a date range as Excel</p>
+          </div>
+          <div className="ml-auto flex items-end gap-3">
+            <div>
+              <label className="label">From</label>
+              <input type="date" className="input" value={range.from}
+                onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label">To</label>
+              <input type="date" className="input" value={range.to}
+                onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} />
+            </div>
+            <button
+              onClick={() => downloadDeliveryReport(range.from, range.to)}
               className="btn-primary flex items-center gap-1.5 whitespace-nowrap"
             >
               <Download className="w-4 h-4" /> Download Excel

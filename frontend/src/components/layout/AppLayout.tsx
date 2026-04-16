@@ -34,7 +34,7 @@ export default function AppLayout() {
   const touchStartY = useRef(0);
   const pulling = useRef(false);
 
-  const PULL_THRESHOLD = 140;
+  const PULL_THRESHOLD = 350;
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (mainRef.current && mainRef.current.scrollTop === 0) {

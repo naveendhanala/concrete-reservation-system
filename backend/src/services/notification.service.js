@@ -310,6 +310,23 @@ async function notifyPMManagerReservationCompleted(reservation) {
   }
 }
 
+async function notifyPMDeliveryLogged(reservation, delivery, loggedByName) {
+  try {
+    const { rows: requester } = await query(
+      'SELECT user_id, email FROM users WHERE user_id = $1',
+      [reservation.requester_id]
+    );
+    if (!requester[0]) return;
+    const title = 'Delivery Logged';
+    const message = `${loggedByName} logged a delivery of ${delivery.quantity_m3} m³ for reservation ${reservation.reservation_number} (TM: ${delivery.tm_no}, Plant: ${delivery.batching_plant}).`;
+    const reservationUrl = `/reservations/${reservation.reservation_id}`;
+    await createInAppNotification(requester[0].user_id, title, message, reservation.reservation_id);
+    await sendPushToUser(requester[0].user_id, title, message, reservationUrl);
+  } catch (err) {
+    logger.error('notifyPMDeliveryLogged failed:', err.message);
+  }
+}
+
 async function notifyPMManagerReservationCancelled(reservation) {
   try {
     if (!reservation.batching_plant) return;
@@ -352,6 +369,7 @@ module.exports = {
   notifyClusterHeadReservationCancelled,
   notifyPMManagerReservationCompleted,
   notifyPMManagerReservationCancelled,
+  notifyPMDeliveryLogged,
   createInAppNotification,
   sendPushToUser,
 };

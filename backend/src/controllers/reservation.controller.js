@@ -464,6 +464,13 @@ exports.addDelivery = asyncHandler(async (req, res) => {
      ORDER BY d.delivered_at`,
     [id]
   );
+
+  await notificationService.notifyPMDeliveryLogged(
+    existing[0],
+    { quantity_m3: parseFloat(quantity_m3), tm_no: tm_no.trim(), batching_plant: batching_plant.trim() },
+    user.name
+  );
+
   res.json(deliveries);
 });
 

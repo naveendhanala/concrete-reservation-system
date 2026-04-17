@@ -317,8 +317,8 @@ exports.modify = asyncHandler(async (req, res) => {
   if (['Completed', 'Cancelled', 'Rejected'].includes(existing[0].status)) {
     throw new AppError('Cannot modify a completed, cancelled, or rejected reservation', 400);
   }
-  // Started reservations skip the cutoff check (pour is already in progress)
-  const skipCutoff = existing[0].status === 'Started';
+  // Started reservations and PMs (who own the reservation) skip the cutoff check
+  const skipCutoff = existing[0].status === 'Started' || user.role === 'PM' || user.role === 'PMHead';
 
   // Get first slot
   const { rows: mappings } = await query(

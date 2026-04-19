@@ -25,29 +25,14 @@ async function seed() {
       plantIds[name] = rows[0].plant_id;
     }
 
-    const packagePlantMap = [
-      { name: 'Package 1 - E6',       plant: 'Batching Plant 1' },
-      { name: 'Package 2 - E8',       plant: 'Batching Plant 1' },
-      { name: 'Package 3 - E9',       plant: 'Batching Plant 1' },
-      { name: 'Package 4 - E13',      plant: 'Batching Plant 1' },
-      { name: 'Package 5 - N7',       plant: 'Batching Plant 1' },
-      { name: 'Package 6 - N10',      plant: 'Batching Plant 2' },
-      { name: 'Package 7 - N11',      plant: 'Batching Plant 2' },
-      { name: 'Package 8 - N13',      plant: 'Batching Plant 2' },
-      { name: 'Package 9 - N14',      plant: 'Batching Plant 2' },
-      { name: 'Package 10 - Zone 3A', plant: 'Batching Plant 3' },
-      { name: 'Package 11 - Zone 4',  plant: 'Batching Plant 3' },
-      { name: 'Package 12 - Zone 5B', plant: 'Batching Plant 3' },
-      { name: 'Package 13 - Zone 10', plant: 'Batching Plant 3' },
-    ];
-    const packages = packagePlantMap.map((p) => p.name);
+    const packages = ['E6', 'E8', 'E9', 'E13', 'N7', 'N10', 'N11', 'N13', 'N14', 'Zone 3A', 'Zone 4', 'Zone 5B', 'Zone 10'];
     const pkgIds = {};
-    for (const { name, plant } of packagePlantMap) {
+    for (const name of packages) {
       const { rows } = await client.query(
-        `INSERT INTO packages (package_name, batching_plant_id) VALUES ($1, $2)
-         ON CONFLICT (package_name) DO UPDATE SET batching_plant_id = EXCLUDED.batching_plant_id
+        `INSERT INTO packages (package_name) VALUES ($1)
+         ON CONFLICT (package_name) DO UPDATE SET package_name = EXCLUDED.package_name
          RETURNING package_id`,
-        [name, plantIds[plant]]
+        [name]
       );
       pkgIds[name] = rows[0].package_id;
     }

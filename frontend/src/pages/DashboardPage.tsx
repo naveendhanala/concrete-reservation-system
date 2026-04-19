@@ -5,15 +5,18 @@ import { dashboardApi } from '../api/index';
 import { ClipboardList, CheckCircle, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-function StatCard({ label, value, icon: Icon, color }: any) {
+function StatCard({ label, value, icon: Icon, color, sublabel, unit }: any) {
   return (
     <div className="card p-5 flex items-center gap-4">
       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${color}`}>
         <Icon className="w-5 h-5" />
       </div>
       <div>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
+        <p className="text-2xl font-bold text-gray-900 leading-tight">
+          {value}{unit && <span className="text-sm font-medium text-gray-500 ml-0.5">{unit}</span>}
+        </p>
         <p className="text-sm text-gray-500">{label}</p>
+        {sublabel && <p className="text-xs text-gray-400">{sublabel}</p>}
       </div>
     </div>
   );
@@ -96,14 +99,11 @@ function VPDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-xs text-gray-400 mb-2 font-medium uppercase tracking-wide">Last 30 days</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="On-Time Rate" value={`${sla.onTimeRate || 0}%`} icon={TrendingUp} color="bg-green-50 text-green-600" />
-          <StatCard label="Actual Qty (m³)" value={sla.totalActualM3 || 0} icon={CheckCircle} color="bg-blue-50 text-blue-600" />
-          <StatCard label="Avg Ack Time" value={`${sla.avgAckHours || 0}h`} icon={Clock} color="bg-purple-50 text-purple-600" />
-          <StatCard label="Pending Approvals" value={data?.pendingApprovals?.length || 0} icon={AlertTriangle} color="bg-orange-50 text-orange-600" />
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Actual Qty" value={sla.todayActualM3 || 0} unit="m³" icon={TrendingUp} color="bg-green-50 text-green-600" sublabel="Today" />
+        <StatCard label="Actual Qty" value={sla.totalActualM3 || 0} unit="m³" icon={CheckCircle} color="bg-blue-50 text-blue-600" sublabel="Last 30 days" />
+        <StatCard label="Avg Ack Time" value={`${sla.avgAckHours || 0}h`} icon={Clock} color="bg-purple-50 text-purple-600" sublabel="Last 30 days" />
+        <StatCard label="Pending Approvals" value={data?.pendingApprovals?.length || 0} icon={AlertTriangle} color="bg-orange-50 text-orange-600" />
       </div>
 
       {data?.pendingApprovals?.length > 0 && (
@@ -137,9 +137,9 @@ function VPDashboard() {
             <thead>
               <tr className="text-left text-xs text-gray-500 border-b">
                 <th className="pb-2 font-medium">Package</th>
-                <th className="pb-2 font-medium text-right">Passes Used</th>
-                <th className="pb-2 font-medium text-right">Total Same-Day</th>
-                <th className="pb-2 font-medium text-right">Status</th>
+                <th className="pb-2 font-medium text-right whitespace-nowrap">Passes</th>
+                <th className="pb-2 font-medium text-center whitespace-nowrap">Same-Day</th>
+                <th className="pb-2 font-medium text-right whitespace-nowrap">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -149,18 +149,17 @@ function VPDashboard() {
                 const exhausted = used >= limit;
                 return (
                   <tr key={pkg.package_id} className="border-b last:border-0">
-                    <td className="py-2 text-gray-900">{pkg.package_name}</td>
-                    <td className="py-2 text-right font-semibold">
+                    <td className="py-2 text-gray-900 max-w-[120px] truncate">{pkg.package_name}</td>
+                    <td className="py-2 text-right font-semibold whitespace-nowrap">
                       <span className={exhausted ? 'text-red-600' : used > 0 ? 'text-orange-500' : 'text-gray-400'}>
                         {used}/{limit}
                       </span>
                     </td>
-                    <td className="py-2 text-right text-gray-500">{pkg.total_same_day}</td>
-                    <td className="py-2 text-right">
-                      {exhausted
-                        ? <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Exhausted</span>
-                        : <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">{limit - used} left</span>
-                      }
+                    <td className="py-2 text-center text-gray-500 whitespace-nowrap">{pkg.total_same_day}</td>
+                    <td className="py-2 text-right whitespace-nowrap">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${exhausted ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                        {limit - used} left
+                      </span>
                     </td>
                   </tr>
                 );

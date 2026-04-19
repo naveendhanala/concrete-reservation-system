@@ -116,7 +116,7 @@ exports.pmHeadDashboard = asyncHandler(async (req, res) => {
 exports.vpDashboard = asyncHandler(async (req, res) => {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
-  const [slaStats, packageStats, pendingApprovals, capacityTrend, pmSameDayCounts, packageFreebieCounts, freebieConfig] = await Promise.all([
+  const [slaStats, packageStats, pendingApprovals, capacityTrend, pmSameDayCounts, packageFreebieCounts, freebieConfig, todayActual] = await Promise.all([
     // SLA / On-time delivery
     query(
       `SELECT
@@ -190,6 +190,11 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
        ORDER BY freebies_used DESC, p.package_name`
     ),
     query(`SELECT value FROM config WHERE key = 'same_day_freebie_limit'`),
+    query(
+      `SELECT COALESCE(SUM(d.quantity_m3), 0) AS today_actual_m3
+       FROM reservation_deliveries d
+       WHERE DATE(d.delivered_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`
+    ),
   ]);
 
   const sla = slaStats.rows[0];
@@ -202,6 +207,7 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
         : 0,
       avgAckHours: parseFloat(sla.avg_ack_hours || 0).toFixed(1),
       totalActualM3: parseFloat(sla.total_actual_m3 || 0).toFixed(1),
+      todayActualM3: parseFloat(todayActual.rows[0]?.today_actual_m3 || 0).toFixed(1),
     },
     packageStats: packageStats.rows,
     pendingApprovals: pendingApprovals.rows,

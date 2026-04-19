@@ -108,25 +108,25 @@ async function seed() {
     }
     console.log('  ✓ Users seeded');
 
-    // ── Site Engineers ────────────────────────────────────────
-    // Only delete engineers not referenced by any existing reservation
-    await client.query(
-      `DELETE FROM site_engineers
-       WHERE package_id = ANY($1)
-         AND engineer_id NOT IN (
-           SELECT site_engineer_id FROM reservations WHERE site_engineer_id IS NOT NULL
-         )`,
-      [Object.values(pkgIds)]
-    );
+    // ── Engineers (role=Engineer users, 3 per package) ───────────
     for (let i = 0; i < packages.length; i++) {
       for (let j = 1; j <= 3; j++) {
+        const loginId = `eng${i + 1}_${j}`;
+        const engId = await insertUser(client, {
+          name: `Engineer ${i + 1}-${j}`,
+          role: 'Engineer',
+          loginId,
+          email: `${loginId}@concrete.com`,
+          hash: hash('Eng@123'),
+          plainPw: 'Eng@123',
+        });
         await client.query(
-          `INSERT INTO site_engineers (name, contact, package_id) VALUES ($1, $2, $3)`,
-          [`Engineer ${i + 1}-${j}`, `+91-98765-${String(i * 3 + j).padStart(5, '0')}`, pkgIds[packages[i]]]
+          'INSERT INTO user_packages (user_id, package_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [engId, pkgIds[packages[i]]]
         );
       }
     }
-    console.log('  ✓ Site engineers seeded');
+    console.log('  ✓ Engineers seeded (3 per package as Engineer users)');
 
     // ── Contractors ───────────────────────────────────────────
     const contractors = ['Larsen & Toubro', 'Afcons Infrastructure', 'NCC Limited', 'Simplex Infrastructure', 'Patel Engineering'];
@@ -171,6 +171,7 @@ async function seed() {
     console.log('  P&M Manager 4: pmm4   / PMM@123  (Camp-1 CP-30)');
     console.log('  Cluster Head:  ch1    / CH@123');
     console.log('  PM 1-13:       pm1    / PM@123');
+    console.log('  Engineers:     eng1_1 / Eng@123  (3 per package, eng<pkg>_<1-3>)');
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

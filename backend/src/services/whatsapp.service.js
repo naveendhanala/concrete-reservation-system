@@ -211,36 +211,54 @@ async function createReservation(fields, pmUser, packageId) {
   const lastSlotId = allocation[allocation.length - 1].slot_id;
   const { rows: lastSlotRows } = await query('SELECT end_time FROM slots WHERE slot_id = $1', [lastSlotId]);
 
+  const { rows: freebieConfig } = await query(`SELECT value FROM config WHERE key = 'same_day_freebie_limit'`);
+  const freebieLimit = parseInt(freebieConfig[0]?.value || '3');
+
   const result = await withTransaction(async (client) => {
+    let isFreebie = false;
+    if (isSameDay) {
+      const { rows: fc } = await client.query(
+        `SELECT COUNT(*) FROM reservations
+         WHERE package_id = $1 AND same_day_freebie = TRUE
+           AND status NOT IN ('Cancelled','Rejected')
+           AND DATE(created_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`,
+        [packageId]
+      );
+      isFreebie = parseInt(fc[0].count) < freebieLimit;
+    }
+
+    const initialStatus = isSameDay ? (isFreebie ? 'Submitted' : 'PendingApproval') : 'Submitted';
+
     const { rows: resRows } = await client.query(
       `INSERT INTO reservations
          (requester_id, package_id, quantity_m3, grade, structure, chainage,
           nature_of_work, pouring_type, engineer_user_id, contractor_id,
           priority_flag, status, requested_start, requested_end,
-          is_split, rfi_id, batching_plant)
+          is_split, rfi_id, batching_plant, same_day_freebie)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
                $13::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
                $14::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
-               $15,$16,$17)
+               $15,$16,$17,$18)
        RETURNING *`,
       [
         pmUser.user_id, packageId, fields.quantity_m3, fields.grade,
         fields.structure, fields.chainage, fields.nature_of_work, fields.pouring_type,
         engineer?.engineer_id || null, contractor?.contractor_id || null,
         isSameDay ? 'SameDay' : 'Normal',
-        isSameDay ? 'PendingApproval' : 'Submitted',
+        initialStatus,
         slot.start_time,
         allocation.length > 1 ? lastSlotRows[0].end_time : slot.end_time,
         allocation.length > 1,
         fields.rfi_id || null,
         fields.batching_plant,
+        isFreebie,
       ]
     );
     const reservation = resRows[0];
 
     await capacityService.applySlotAllocations(client, reservation.reservation_id, allocation);
 
-    if (isSameDay) {
+    if (isSameDay && !isFreebie) {
       const { rows: vpRows } = await client.query(
         `SELECT user_id FROM users WHERE role = 'VP' LIMIT 1`
       );
@@ -251,6 +269,9 @@ async function createReservation(fields, pmUser, packageId) {
           [reservation.reservation_id, vpRows[0].user_id]
         );
       }
+    }
+
+    if (isSameDay) {
       await client.query(
         'UPDATE users SET same_day_request_count = same_day_request_count + 1 WHERE user_id = $1',
         [pmUser.user_id]

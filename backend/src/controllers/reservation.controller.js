@@ -162,28 +162,48 @@ exports.create = asyncHandler(async (req, res) => {
   const allocation = await capacityService.computeSlotAllocation(slotId, quantity_m3);
   const isSameDay = capacityService.isSameDay(slot.start_time);
 
+  // Fetch freebie limit once outside the transaction
+  const { rows: freebieConfig } = await query(`SELECT value FROM config WHERE key = 'same_day_freebie_limit'`);
+  const freebieLimit = parseInt(freebieConfig[0]?.value || '3');
+
   const result = await withTransaction(async (client) => {
+    // Determine if this same-day request qualifies as a freebie
+    let isFreebie = false;
+    if (isSameDay) {
+      const { rows: fc } = await client.query(
+        `SELECT COUNT(*) FROM reservations
+         WHERE package_id = $1 AND same_day_freebie = TRUE
+           AND status NOT IN ('Cancelled','Rejected')
+           AND DATE(created_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`,
+        [packageId]
+      );
+      isFreebie = parseInt(fc[0].count) < freebieLimit;
+    }
+
+    const initialStatus = isSameDay ? (isFreebie ? 'Submitted' : 'PendingApproval') : 'Submitted';
+
     // Create reservation
     const { rows: resRows } = await client.query(
       `INSERT INTO reservations
          (requester_id, package_id, quantity_m3, grade, structure, chainage,
           nature_of_work, pouring_type, engineer_user_id, contractor_id,
           priority_flag, status, requested_start, requested_end,
-          is_split, rfi_id, batching_plant)
+          is_split, rfi_id, batching_plant, same_day_freebie)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
                $13::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
                $14::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
-               $15,$16,$17)
+               $15,$16,$17,$18)
        RETURNING *`,
       [
         user.user_id, packageId, quantity_m3, grade, structure, chainage,
         nature_of_work, pouring_type, engineer_user_id || null, contractor_id,
         isSameDay ? 'SameDay' : 'Normal',
-        isSameDay ? 'PendingApproval' : 'Submitted',
+        initialStatus,
         slot.start_time, slot.end_time,
         false,
         rfi_id || null,
         batching_plant || null,
+        isFreebie,
       ]
     );
     const reservation = resRows[0];
@@ -191,8 +211,8 @@ exports.create = asyncHandler(async (req, res) => {
     // Apply slot allocations (with locking)
     await capacityService.applySlotAllocations(client, reservation.reservation_id, allocation);
 
-    // If same-day, create VP approval task
-    if (isSameDay) {
+    // If same-day and freebie budget exhausted, create VP approval task
+    if (isSameDay && !isFreebie) {
       const { rows: vpRows } = await client.query(`SELECT user_id FROM users WHERE role = 'VP' LIMIT 1`);
       if (vpRows[0]) {
         await client.query(
@@ -203,27 +223,31 @@ exports.create = asyncHandler(async (req, res) => {
         );
         reservation._vpUserId = vpRows[0].user_id;
       }
-      // Increment same-day counter for PM
+    }
+
+    // Increment same-day counter for PM
+    if (isSameDay) {
       await client.query(
         'UPDATE users SET same_day_request_count = same_day_request_count + 1 WHERE user_id = $1',
         [user.user_id]
       );
     }
 
+    reservation._isFreebie = isFreebie;
     return reservation;
   });
 
   // Audit
   await auditService.log(user.user_id, 'reservations', result.reservation_id, 'Create', null, result);
 
-  // Notifications
-  await notificationService.notifyReservationCreated(result, user);
-  await notificationService.notifyClusterHeadReservationCreated(result, user.name);
-  if (result._vpUserId) {
-    await notificationService.notifyApprovalRequested(result, result._vpUserId);
-  }
-
   res.status(201).json(result);
+
+  // Notifications (fire-and-forget — don't block the response)
+  notificationService.notifyReservationCreated(result, user);
+  notificationService.notifyClusterHeadReservationCreated(result, user.name);
+  if (result._vpUserId) {
+    notificationService.notifyApprovalRequested(result, result._vpUserId);
+  }
 });
 
 // ── ACKNOWLEDGE ───────────────────────────────────────────────────────────────
@@ -254,8 +278,8 @@ exports.acknowledge = asyncHandler(async (req, res) => {
   );
 
   await auditService.log(user.user_id, 'reservations', id, 'Update', existing[0], rows[0]);
-  await notificationService.notifyReservationAcknowledged(rows[0]);
   res.json(rows[0]);
+  notificationService.notifyReservationAcknowledged(rows[0]);
 });
 
 // ── PROPOSE ALTERNATIVE ───────────────────────────────────────────────────────
@@ -301,8 +325,8 @@ exports.proposeAlternative = asyncHandler(async (req, res) => {
   });
 
   const { rows: updated } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
-  await notificationService.notifySlotProposed(updated[0]);
   res.json(updated[0]);
+  notificationService.notifySlotProposed(updated[0]);
 });
 
 // ── MODIFY ────────────────────────────────────────────────────────────────────
@@ -409,10 +433,9 @@ exports.cancel = asyncHandler(async (req, res) => {
   await auditService.log(user.user_id, 'reservations', id, 'Delete', existing[0], null);
 
   const cancelled = { ...existing[0], cancellation_reason: reason };
-  await notificationService.notifyClusterHeadReservationCancelled(cancelled);
-  await notificationService.notifyPMManagerReservationCancelled(cancelled);
-
   res.json({ message: 'Reservation cancelled successfully' });
+  notificationService.notifyClusterHeadReservationCancelled(cancelled);
+  notificationService.notifyPMManagerReservationCancelled(cancelled);
 });
 
 // ── START ──────────────────────────────────────────────────────────────────────
@@ -431,8 +454,8 @@ exports.start = asyncHandler(async (req, res) => {
   );
 
   await auditService.log(user.user_id, 'reservations', id, 'Update', existing[0], rows[0]);
-  await notificationService.notifyReservationStarted(rows[0]);
   res.json(rows[0]);
+  notificationService.notifyReservationStarted(rows[0]);
 });
 
 // ── ADD DELIVERY ──────────────────────────────────────────────────────────────
@@ -478,13 +501,12 @@ exports.addDelivery = asyncHandler(async (req, res) => {
     [id]
   );
 
-  await notificationService.notifyPMDeliveryLogged(
+  res.json(deliveries);
+  notificationService.notifyPMDeliveryLogged(
     existing[0],
     { quantity_m3: parseFloat(quantity_m3), tm_no: tm_no.trim(), batching_plant: batching_plant.trim() },
     user.name
   );
-
-  res.json(deliveries);
 });
 
 // ── EDIT DELIVERY ─────────────────────────────────────────────────────────────
@@ -557,8 +579,8 @@ exports.complete = asyncHandler(async (req, res) => {
   );
 
   await auditService.log(user.user_id, 'reservations', id, 'Update', existing[0], rows[0]);
-  await notificationService.notifyPMManagerReservationCompleted(rows[0]);
   res.json(rows[0]);
+  notificationService.notifyPMManagerReservationCompleted(rows[0]);
 });
 
 // ── GET SLOT ALLOCATIONS ──────────────────────────────────────────────────────

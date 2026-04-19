@@ -125,6 +125,7 @@ export const notificationsApi = {
 // src/api/packages.api.ts
 export const packagesApi = {
   list: () => client.get('/packages').then((r) => r.data),
+  getFreebieStatus: () => client.get('/packages/freebie-status').then((r) => r.data),
 };
 
 // src/api/machinery.api.ts

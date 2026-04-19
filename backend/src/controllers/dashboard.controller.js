@@ -116,7 +116,7 @@ exports.pmHeadDashboard = asyncHandler(async (req, res) => {
 exports.vpDashboard = asyncHandler(async (req, res) => {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
-  const [slaStats, packageStats, pendingApprovals, capacityTrend, pmSameDayCounts] = await Promise.all([
+  const [slaStats, packageStats, pendingApprovals, capacityTrend, pmSameDayCounts, packageFreebieCounts, freebieConfig] = await Promise.all([
     // SLA / On-time delivery
     query(
       `SELECT
@@ -179,6 +179,17 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
        GROUP BY u.user_id, u.name, u.same_day_request_count
        ORDER BY u.same_day_request_count DESC, u.name`
     ),
+    // Per-package freebie usage
+    query(
+      `SELECT p.package_id, p.package_name,
+              COUNT(r.reservation_id) FILTER (WHERE r.same_day_freebie = TRUE AND r.status NOT IN ('Cancelled','Rejected') AND DATE(r.created_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE) AS freebies_used,
+              COUNT(r.reservation_id) FILTER (WHERE r.priority_flag = 'SameDay' AND r.status NOT IN ('Cancelled','Rejected') AND DATE(r.created_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE) AS total_same_day
+       FROM packages p
+       LEFT JOIN reservations r ON r.package_id = p.package_id
+       GROUP BY p.package_id, p.package_name
+       ORDER BY freebies_used DESC, p.package_name`
+    ),
+    query(`SELECT value FROM config WHERE key = 'same_day_freebie_limit'`),
   ]);
 
   const sla = slaStats.rows[0];
@@ -196,6 +207,8 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
     pendingApprovals: pendingApprovals.rows,
     capacityTrend: capacityTrend.rows,
     pmSameDayCounts: pmSameDayCounts.rows,
+    packageFreebieCounts: packageFreebieCounts.rows,
+    freebieLimit: parseInt(freebieConfig.rows[0]?.value || '3'),
   });
 });
 

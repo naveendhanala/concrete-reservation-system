@@ -7,6 +7,7 @@ import { usersApi } from '../api';
 
 const CONFIG_LABELS: Record<string, string> = {
   cutoff_hours: 'Cutoff Hours (before slot start)',
+  same_day_freebie_limit: 'Same-Day Freebie Passes per Package (per day)',
 };
 
 const SHIFTS = [

@@ -2,10 +2,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { reservationsApi, slotsApi, usersApi } from '../api/index';
+import { reservationsApi, slotsApi, usersApi, packagesApi } from '../api/index';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 
 const GRADES = ['M10_PCC', 'M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M40', 'M45', 'M50_PSC'];
 const POURING_TYPES = ['BoomPlacer', 'ConcretePump', 'Chute', 'Manual'];
@@ -33,6 +33,12 @@ export default function NewReservationPage() {
   const [contractorOpen, setContractorOpen] = useState(false);
   const contractorRef = useRef<HTMLDivElement>(null);
   const [isSameDay, setIsSameDay] = useState(false);
+
+  const { data: freebieStatus } = useQuery({
+    queryKey: ['freebie-status'],
+    queryFn: packagesApi.getFreebieStatus,
+    enabled: user?.role === 'PM',
+  });
 
   // Fetch today + tomorrow with their predefined shifts, filtered by selected plant
   const { data: bookableDates = [], isLoading: datesLoading } = useQuery({
@@ -120,12 +126,31 @@ export default function NewReservationPage() {
         <p className="text-sm text-gray-500 mt-0.5">{user?.packageNames?.[0]}</p>
       </div>
 
-      {isSameDay && (
+      {isSameDay && freebieStatus && (
+        freebieStatus.remaining > 0 ? (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex gap-2">
+            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-green-800">
+              <p className="font-medium">Same-Day Request — Auto-Approved</p>
+              <p>Your package has <strong>{freebieStatus.remaining}</strong> of <strong>{freebieStatus.limit}</strong> free same-day passes remaining today. This request will be submitted directly.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex gap-2">
+            <AlertCircle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-orange-700">
+              <p className="font-medium">Same-Day Request — Requires VP Approval</p>
+              <p>Your package has used all <strong>{freebieStatus.limit}</strong> free same-day passes for today. This request will go for VP approval.</p>
+            </div>
+          </div>
+        )
+      )}
+      {isSameDay && !freebieStatus && (
         <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex gap-2">
           <AlertCircle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-orange-700">
             <p className="font-medium">Same-Day Request</p>
-            <p>This requires VP approval. Your same-day request count: <strong>{user?.sameDayRequestCount || 0}</strong></p>
+            <p>Checking freebie status...</p>
           </div>
         </div>
       )}
@@ -338,7 +363,13 @@ export default function NewReservationPage() {
             Cancel
           </button>
           <button type="submit" className="btn-primary flex-1" disabled={createMutation.isPending}>
-            {createMutation.isPending ? 'Submitting...' : isSameDay ? 'Submit (Needs VP Approval)' : 'Submit Reservation'}
+            {createMutation.isPending
+            ? 'Submitting...'
+            : isSameDay
+              ? freebieStatus && freebieStatus.remaining > 0
+                ? 'Submit Reservation'
+                : 'Submit (Needs VP Approval)'
+              : 'Submit Reservation'}
           </button>
         </div>
       </form>

@@ -126,32 +126,45 @@ function VPDashboard() {
       )}
 
       <div className="card p-5">
-        <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-orange-500" /> Same-Day Requests by PM
+        <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-orange-500" /> Same-Day Freebie Usage by Package
         </h3>
-        {data?.pmSameDayCounts?.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">No same-day requests yet.</p>
+        <p className="text-xs text-gray-400 mb-3">Limit: {data?.freebieLimit ?? 3} free passes per package per day. Resets each day. Once exhausted, same-day requests go to VP approval.</p>
+        {!data?.packageFreebieCounts?.length ? (
+          <p className="text-sm text-gray-400 text-center py-4">No packages found.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-gray-500 border-b">
-                <th className="pb-2 font-medium">PM Name</th>
                 <th className="pb-2 font-medium">Package</th>
-                <th className="pb-2 font-medium text-right">Same-Day Requests</th>
+                <th className="pb-2 font-medium text-right">Passes Used</th>
+                <th className="pb-2 font-medium text-right">Total Same-Day</th>
+                <th className="pb-2 font-medium text-right">Status</th>
               </tr>
             </thead>
             <tbody>
-              {data.pmSameDayCounts.map((pm: any) => (
-                <tr key={pm.user_id} className="border-b last:border-0">
-                  <td className="py-2 text-gray-900">{pm.name}</td>
-                  <td className="py-2 text-gray-500 text-xs">{pm.packages}</td>
-                  <td className="py-2 text-right">
-                    <span className={`font-semibold ${pm.same_day_request_count > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
-                      {pm.same_day_request_count}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {data.packageFreebieCounts.map((pkg: any) => {
+                const used = parseInt(pkg.freebies_used);
+                const limit = data.freebieLimit ?? 3;
+                const exhausted = used >= limit;
+                return (
+                  <tr key={pkg.package_id} className="border-b last:border-0">
+                    <td className="py-2 text-gray-900">{pkg.package_name}</td>
+                    <td className="py-2 text-right font-semibold">
+                      <span className={exhausted ? 'text-red-600' : used > 0 ? 'text-orange-500' : 'text-gray-400'}>
+                        {used}/{limit}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right text-gray-500">{pkg.total_same_day}</td>
+                    <td className="py-2 text-right">
+                      {exhausted
+                        ? <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">Exhausted</span>
+                        : <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">{limit - used} left</span>
+                      }
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

@@ -147,11 +147,12 @@ exports.create = asyncHandler(async (req, res) => {
 
   // Get user's package
   const { rows: pkgRows } = await query(
-    'SELECT package_id FROM user_packages WHERE user_id = $1 LIMIT 1',
+    'SELECT p.package_id, p.skip_same_day_approval FROM user_packages up JOIN packages p ON up.package_id = p.package_id WHERE up.user_id = $1 LIMIT 1',
     [user.user_id]
   );
   if (!pkgRows[0]) throw new AppError('PM not assigned to a package', 400);
   const packageId = pkgRows[0].package_id;
+  const skipSameDayApproval = pkgRows[0].skip_same_day_approval === true;
 
   // Get slot info
   const { rows: slotRows } = await query('SELECT * FROM slots WHERE slot_id = $1', [slotId]);
@@ -170,14 +171,19 @@ exports.create = asyncHandler(async (req, res) => {
     // Determine if this same-day request qualifies as a freebie
     let isFreebie = false;
     if (isSameDay) {
-      const { rows: fc } = await client.query(
-        `SELECT COUNT(*) FROM reservations
-         WHERE package_id = $1 AND same_day_freebie = TRUE
-           AND status NOT IN ('Cancelled','Rejected')
-           AND DATE(created_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`,
-        [packageId]
-      );
-      isFreebie = parseInt(fc[0].count) < freebieLimit;
+      if (skipSameDayApproval) {
+        // Misc package always bypasses approval — treat as freebie unconditionally
+        isFreebie = true;
+      } else {
+        const { rows: fc } = await client.query(
+          `SELECT COUNT(*) FROM reservations
+           WHERE package_id = $1 AND same_day_freebie = TRUE
+             AND status NOT IN ('Cancelled','Rejected')
+             AND DATE(created_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`,
+          [packageId]
+        );
+        isFreebie = parseInt(fc[0].count) < freebieLimit;
+      }
     }
 
     const initialStatus = isSameDay ? (isFreebie ? 'Submitted' : 'PendingApproval') : 'Submitted';

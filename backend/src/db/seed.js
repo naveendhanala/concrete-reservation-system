@@ -32,7 +32,7 @@ async function seed() {
     console.log('  ✓ Batching plants seeded');
 
     // ── Packages ──────────────────────────────────────────────
-    const packages = ['E6', 'E8', 'E9', 'E13', 'N7', 'N10', 'N11', 'N13', 'N14', 'Zone 3A', 'Zone 4', 'Zone 5B', 'Zone 10'];
+    const packages = ['E6', 'E8', 'E9', 'Misc', 'N7', 'N10', 'N11', 'N13', 'N14', 'Zone 3A', 'Zone 4', 'Zone 5B', 'Zone 10'];
     const pkgIds = {};
     for (const name of packages) {
       const { rows } = await client.query(

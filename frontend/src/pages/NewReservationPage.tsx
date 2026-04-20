@@ -9,6 +9,7 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 
 const GRADES = ['M10_PCC', 'M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M40', 'M45', 'M50_PSC'];
 const POURING_TYPES = ['BoomPlacer', 'ConcretePump', 'Chute', 'Manual'];
+const TYPE_OF_WORK = ['Bridges', 'SWD', 'Precast Manholes', 'Precast SWD', 'Camp Works'];
 const BATCHING_PLANTS = ['Camp-1 M3', 'Camp-2 M3', 'Camp-3 M1', 'Camp-1 CP-30'];
 
 export default function NewReservationPage() {
@@ -21,6 +22,7 @@ export default function NewReservationPage() {
     structure: '',
     chainage: '',
     nature_of_work: '',
+    type_of_work: '',
     pouring_type: 'BoomPlacer',
     engineer_user_id: '',
     contractor_id: '',
@@ -108,6 +110,7 @@ export default function NewReservationPage() {
       structure: form.structure,
       chainage: form.chainage,
       nature_of_work: form.nature_of_work,
+      type_of_work: form.type_of_work,
       pouring_type: form.pouring_type,
       engineer_user_id: form.engineer_user_id,
       contractor_id: form.contractor_id,
@@ -282,12 +285,21 @@ export default function NewReservationPage() {
             value={form.nature_of_work} onChange={set('nature_of_work')} required />
         </div>
 
-        {/* Pouring Type */}
-        <div>
-          <label className="label">Pouring Type <span className="text-red-500">*</span></label>
-          <select className="input" value={form.pouring_type} onChange={set('pouring_type')} required>
-            {POURING_TYPES.map((p) => <option key={p} value={p}>{p.replace(/([A-Z])/g, ' $1').trim()}</option>)}
-          </select>
+        {/* Pouring Type & Type of Work */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="label">Pouring Type <span className="text-red-500">*</span></label>
+            <select className="input" value={form.pouring_type} onChange={set('pouring_type')} required>
+              {POURING_TYPES.map((p) => <option key={p} value={p}>{p.replace(/([A-Z])/g, ' $1').trim()}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Type of Work <span className="text-red-500">*</span></label>
+            <select className="input" value={form.type_of_work} onChange={set('type_of_work')} required>
+              <option value="">Select type</option>
+              {TYPE_OF_WORK.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* Site Engineer */}

@@ -244,6 +244,7 @@ export default function ReservationDetailPage() {
             <Field label="Structure" value={reservation.structure} />
             <Field label="Chainage" value={reservation.chainage} />
             <Field label="Nature of Work" value={reservation.nature_of_work} />
+            {reservation.type_of_work && <Field label="Type of Work" value={reservation.type_of_work} />}
           </div>
         </div>
 

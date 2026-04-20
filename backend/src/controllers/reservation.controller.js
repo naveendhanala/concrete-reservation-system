@@ -141,7 +141,7 @@ exports.create = asyncHandler(async (req, res) => {
   const user = req.user;
   const {
     slotId, quantity_m3, grade, structure, chainage,
-    nature_of_work, pouring_type, engineer_user_id, contractor_id,
+    nature_of_work, type_of_work, pouring_type, engineer_user_id, contractor_id,
     rfi_id, batching_plant,
   } = req.body;
 
@@ -186,17 +186,17 @@ exports.create = asyncHandler(async (req, res) => {
     const { rows: resRows } = await client.query(
       `INSERT INTO reservations
          (requester_id, package_id, quantity_m3, grade, structure, chainage,
-          nature_of_work, pouring_type, engineer_user_id, contractor_id,
+          nature_of_work, type_of_work, pouring_type, engineer_user_id, contractor_id,
           priority_flag, status, requested_start, requested_end,
           is_split, rfi_id, batching_plant, same_day_freebie)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
-               $13::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
                $14::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
-               $15,$16,$17,$18)
+               $15::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
+               $16,$17,$18,$19)
        RETURNING *`,
       [
         user.user_id, packageId, quantity_m3, grade, structure, chainage,
-        nature_of_work, pouring_type, engineer_user_id || null, contractor_id,
+        nature_of_work, type_of_work, pouring_type, engineer_user_id || null, contractor_id,
         isSameDay ? 'SameDay' : 'Normal',
         initialStatus,
         slot.start_time, slot.end_time,

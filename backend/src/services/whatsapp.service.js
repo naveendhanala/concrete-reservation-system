@@ -190,9 +190,7 @@ async function createReservation(fields, pmUser, packageId) {
     throw new Error(`${fields.slot_name} not found for ${fields.batching_plant} on ${fields.date}`);
   }
 
-  if (fields.quantity_m3 > 50) {
-    throw new Error(`Maximum 50 m³ allowed per reservation. Requested: ${fields.quantity_m3} m³`);
-  }
+
   const available = parseFloat(slot.capacity_m3) - parseFloat(slot.booked_m3);
   if (available <= 0) {
     throw new Error(`${fields.slot_name} is fully booked for ${fields.batching_plant} on ${fields.date}`);

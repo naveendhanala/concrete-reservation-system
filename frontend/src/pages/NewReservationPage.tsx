@@ -253,7 +253,7 @@ export default function NewReservationPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="label">Quantity (m³) <span className="text-red-500">*</span></label>
-            <input type="number" className="input" placeholder="e.g. 30" step="0.01" min="0.01" max="50"
+            <input type="number" className="input" placeholder="e.g. 30" step="0.01" min="0.01"
               value={form.quantity_m3} onChange={set('quantity_m3')} required />
           </div>
           <div>

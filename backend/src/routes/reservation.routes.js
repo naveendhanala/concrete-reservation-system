@@ -17,7 +17,7 @@ router.post('/',
   requireRole('PM'),
   [
     body('slotId').isUUID(),
-    body('quantity_m3').isFloat({ min: 0.1, max: 50 }),
+    body('quantity_m3').isFloat({ min: 0.1 }),
     body('grade').isIn(['M10_PCC', 'M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M40', 'M45', 'M50_PSC']),
     body('structure').notEmpty(),
     body('chainage').notEmpty(),

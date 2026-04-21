@@ -429,7 +429,7 @@ export default function ReservationDetailPage() {
             <p className="text-sm text-gray-500 mb-4">Changing quantity will re-submit for P&M acknowledgement.</p>
             <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">New Quantity (m³)</label>
             <input
-              type="number" min="0.1" max="50" step="0.01"
+              type="number" min="0.1" step="0.01"
               className="input mt-1 mb-3"
               value={modifyQty}
               onChange={(e) => setModifyQty(e.target.value)}

@@ -234,7 +234,6 @@ export default function ReportsPage() {
         {[
           { label: 'Total Reservations', value: totals.total },
           { label: 'Completed', value: totals.completed },
-          { label: 'Cancelled', value: totals.cancelled },
           { label: 'On-Time Rate', value: `${onTimeRate}%` },
         ].map((k) => (
           <div key={k.label} className="card p-4 text-center">
@@ -253,7 +252,7 @@ export default function ReportsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                {['Date', 'Total', 'Completed', 'Cancelled', 'On-Time', 'Requested (m³)', 'Actual (m³)'].map((h) => (
+                {['Date', 'Total', 'Completed', 'On-Time', 'Requested (m³)', 'Actual (m³)'].map((h) => (
                   <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase">{h}</th>
                 ))}
               </tr>
@@ -264,14 +263,13 @@ export default function ReportsPage() {
                   <td className="px-4 py-2.5">{row.date}</td>
                   <td className="px-4 py-2.5 font-medium">{row.total}</td>
                   <td className="px-4 py-2.5 text-green-600">{row.completed}</td>
-                  <td className="px-4 py-2.5 text-red-500">{row.cancelled}</td>
                   <td className="px-4 py-2.5">{row.on_time || 0}</td>
                   <td className="px-4 py-2.5">{parseFloat(row.total_requested_m3 || 0).toFixed(1)}</td>
                   <td className="px-4 py-2.5">{parseFloat(row.total_actual_m3 || 0).toFixed(1)}</td>
                 </tr>
               ))}
               {slaData.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No data for selected range</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No data for selected range</td></tr>
               )}
             </tbody>
           </table>
@@ -283,7 +281,7 @@ export default function ReportsPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              {['Package', 'Total', 'Completed', 'Cancelled', 'Requested (m³)', 'Actual (m³)'].map((h) => (
+              {['Package', 'Total', 'Completed', 'Requested (m³)', 'Actual (m³)'].map((h) => (
                 <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase">{h}</th>
               ))}
             </tr>
@@ -294,13 +292,12 @@ export default function ReportsPage() {
                 <td className="px-4 py-2.5 font-medium">{row.package_name}</td>
                 <td className="px-4 py-2.5">{row.total}</td>
                 <td className="px-4 py-2.5 text-green-600">{row.completed}</td>
-                <td className="px-4 py-2.5 text-red-500">{row.cancelled}</td>
                 <td className="px-4 py-2.5">{parseFloat(row.total_requested_m3 || 0).toFixed(1)}</td>
                 <td className="px-4 py-2.5">{parseFloat(row.total_actual_m3 || 0).toFixed(1)}</td>
               </tr>
             ))}
             {packageData.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No data for selected range</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No data for selected range</td></tr>
             )}
           </tbody>
         </table>

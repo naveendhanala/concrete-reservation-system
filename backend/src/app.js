@@ -24,6 +24,10 @@ const { authenticate } = require('./middleware/auth');
 
 const app = express();
 
+// Trust the first proxy (required for Vercel/AWS — they set X-Forwarded-For,
+// which express-rate-limit v7 rejects unless trust proxy is enabled)
+app.set('trust proxy', 1);
+
 // Security
 app.use(helmet());
 app.use(cors({

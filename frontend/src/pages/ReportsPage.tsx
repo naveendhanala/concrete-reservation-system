@@ -264,8 +264,8 @@ export default function ReportsPage() {
                   <td className="px-4 py-2.5 font-medium">{row.total}</td>
                   <td className="px-4 py-2.5 text-green-600">{row.completed}</td>
                   <td className="px-4 py-2.5">{row.on_time || 0}</td>
-                  <td className="px-4 py-2.5">{parseFloat(row.total_requested_m3 || 0).toFixed(1)}</td>
-                  <td className="px-4 py-2.5">{parseFloat(row.total_actual_m3 || 0).toFixed(1)}</td>
+                  <td className="px-4 py-2.5">{parseFloat(row.total_requested_m3 || 0).toFixed(2)}</td>
+                  <td className="px-4 py-2.5">{parseFloat(row.total_actual_m3 || 0).toFixed(2)}</td>
                 </tr>
               ))}
               {slaData.length === 0 && (
@@ -292,8 +292,8 @@ export default function ReportsPage() {
                 <td className="px-4 py-2.5 font-medium">{row.package_name}</td>
                 <td className="px-4 py-2.5">{row.total}</td>
                 <td className="px-4 py-2.5 text-green-600">{row.completed}</td>
-                <td className="px-4 py-2.5">{parseFloat(row.total_requested_m3 || 0).toFixed(1)}</td>
-                <td className="px-4 py-2.5">{parseFloat(row.total_actual_m3 || 0).toFixed(1)}</td>
+                <td className="px-4 py-2.5">{parseFloat(row.total_requested_m3 || 0).toFixed(2)}</td>
+                <td className="px-4 py-2.5">{parseFloat(row.total_actual_m3 || 0).toFixed(2)}</td>
               </tr>
             ))}
             {packageData.length === 0 && (

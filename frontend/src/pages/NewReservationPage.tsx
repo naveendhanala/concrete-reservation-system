@@ -9,7 +9,7 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 
 const GRADES = ['M10_PCC', 'M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M40', 'M45', 'M50_PSC'];
 const POURING_TYPES = ['BoomPlacer', 'ConcretePump', 'Chute', 'Manual'];
-const TYPE_OF_WORK = ['Bridges', 'SWD', 'Precast Manholes', 'Precast SWD', 'Camp Works', 'Kerb', 'Bridge/Labour Sheds', 'Bridge/Pier Cap Staging Purpose', 'Girder Casting Yard', 'Casting Yard'];
+const TYPE_OF_WORK = ['Bridges', 'SWD', 'Precast Manholes', 'Precast SWD', 'Camp Works', 'Kerb', 'Bridge/Labour Sheds', 'Bridge/Pier Cap Staging Purpose', 'Girder Casting Yard', 'Casting Yard', 'Power EHV'];
 const BATCHING_PLANTS = ['Camp-1 M3', 'Camp-2 M3', 'Camp-3 M1', 'Camp-1 CP-30'];
 
 export default function NewReservationPage() {

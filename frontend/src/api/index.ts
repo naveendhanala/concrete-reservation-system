@@ -178,3 +178,9 @@ export const reportsApi = {
   deliveries: (params: Record<string, any>) =>
     client.get('/reports/deliveries', { params }).then((r) => r.data),
 };
+
+// src/api/delivery-logs.api.ts
+export const deliveryLogsApi = {
+  list: (params?: { date?: string; packageId?: string; page?: number; limit?: number }) =>
+    client.get('/delivery-logs', { params }).then((r) => r.data),
+};

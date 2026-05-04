@@ -33,3 +33,6 @@ postgres_data/
 
 # TypeScript
 *.tsbuildinfo
+
+# Git worktrees
+.worktrees/

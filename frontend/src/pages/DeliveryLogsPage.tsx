@@ -103,11 +103,11 @@ export default function DeliveryLogsPage() {
                   <td className="px-4 py-3 text-gray-600">{d.structure || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{d.nature_of_work || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{d.rfi_id || '—'}</td>
-                  <td className="px-4 py-3 font-medium">{Number(d.quantity_m3).toFixed(2)} m³</td>
-                  <td className="px-4 py-3 text-gray-600">{d.tm_no}</td>
-                  <td className="px-4 py-3 text-gray-600">{d.driver_no}</td>
-                  <td className="px-4 py-3 text-gray-600">{d.batching_plant}</td>
-                  <td className="px-4 py-3 text-gray-600">{d.logged_by}</td>
+                  <td className="px-4 py-3 font-medium">{d.quantity_m3 != null ? `${Number(d.quantity_m3).toFixed(2)} m³` : '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{d.tm_no || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{d.driver_no || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{d.batching_plant || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{d.logged_by || '—'}</td>
                 </tr>
               ))}
             </tbody>

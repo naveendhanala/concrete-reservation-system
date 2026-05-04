@@ -18,6 +18,7 @@ const notificationRoutes = require('./routes/notification.routes');
 const pushRoutes = require('./routes/push.routes');
 const whatsappRoutes = require('./routes/whatsapp.routes');
 const machineryRoutes = require('./routes/machinery.routes');
+const deliveryLogsRoutes = require('./routes/delivery-logs.routes');
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { authenticate } = require('./middleware/auth');
@@ -125,6 +126,7 @@ app.use('/api/config', authenticate, configRoutes);
 app.use('/api/notifications', authenticate, notificationRoutes);
 app.use('/api/push', authenticate, pushRoutes);
 app.use('/api/machinery', authenticate, machineryRoutes);
+app.use('/api/delivery-logs', authenticate, deliveryLogsRoutes);
 
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));

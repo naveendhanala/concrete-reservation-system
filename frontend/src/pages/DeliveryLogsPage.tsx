@@ -41,7 +41,7 @@ export default function DeliveryLogsPage() {
           className="input"
           value={filters.date}
           onChange={(e) => setFilters((f) => ({ ...f, date: e.target.value, page: 1 }))}
-          placeholder="Delivered Date"
+          aria-label="Delivered Date"
         />
         <select
           className="input"

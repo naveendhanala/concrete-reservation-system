@@ -4,8 +4,8 @@ const { asyncHandler } = require('../middleware/errorHandler');
 
 const listDeliveryLogs = asyncHandler(async (req, res) => {
   const { date, packageId } = req.query;
-  const pageNum  = Math.max(1, parseInt(req.query.page)  || 1);
-  const limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+  const pageNum  = Math.max(1, parseInt(req.query.page, 10)  || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
   const offset   = (pageNum - 1) * limitNum;
 
   const dateParam    = date      || null;

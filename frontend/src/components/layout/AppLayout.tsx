@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, ClipboardList, CheckSquare, Calendar,
-  BarChart2, Users, Settings, LogOut, Bell, HardHat, Menu, X, Building2, Wrench
+  BarChart2, Users, Settings, LogOut, Bell, HardHat, Menu, X, Building2, Wrench, Truck
 } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import { notificationsApi } from '../../api/index';
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin'] },
   { to: '/reservations', icon: ClipboardList, label: 'Reservations', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin'] },
+  { to: '/delivery-logs', icon: Truck, label: 'Delivery Logs', roles: ['PMHead', 'PMManager'] },
   { to: '/approvals', icon: CheckSquare, label: 'Approvals', roles: ['VP','ClusterHead','PMHead'] },
   { to: '/calendar', icon: Calendar, label: 'Capacity Calendar', roles: ['PMHead','PMManager','VP','Admin'] },
   { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['PM','VP','ClusterHead','PMHead','PMManager','Admin'] },

@@ -18,6 +18,7 @@ import ReportsPage from './pages/ReportsPage';
 import UsersPage from './pages/UsersPage';
 import ContractorsPage from './pages/ContractorsPage';
 import MachineryPage from './pages/MachineryPage';
+import DeliveryLogsPage from './pages/DeliveryLogsPage';
 import SettingsPage from './pages/SettingsPage';
 
 import AppLayout from './components/layout/AppLayout';
@@ -94,6 +95,9 @@ export default function App() {
               <RoleRoute roles={['Admin', 'LabourMob']}><ContractorsPage /></RoleRoute>
             } />
             <Route path="machinery" element={<MachineryPage />} />
+            <Route path="delivery-logs" element={
+              <RoleRoute roles={['PMHead', 'PMManager']}><DeliveryLogsPage /></RoleRoute>
+            } />
             <Route path="settings" element={
               <RoleRoute roles={['Admin']}><SettingsPage /></RoleRoute>
             } />

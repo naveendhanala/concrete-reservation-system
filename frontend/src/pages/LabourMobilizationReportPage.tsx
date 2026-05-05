@@ -3,6 +3,21 @@ import { useQuery } from '@tanstack/react-query';
 import { reportsApi } from '../api/index';
 import { Users } from 'lucide-react';
 
+const TOTAL_REQUIRED: Record<string, number> = {
+  'E6': 230,
+  'N11': 200,
+  'N13': 290,
+  'N14': 150,
+  'E8': 260,
+  'E9': 250,
+  'N7': 350,
+  'N10': 550,
+  'Zone 3A': 538,
+  'Zone 4': 600,
+  'Zone 5B': 400,
+  'Zone 10': 950,
+};
+
 interface MobilizerRow {
   mobilized_by: string;
   labour_count: number;
@@ -29,12 +44,20 @@ function SimpleSummaryTable({
   columnLabel,
   rows,
   total,
+  totalRequired,
 }: {
   title: string;
   columnLabel: string;
   rows: { label: string; labour_count: number }[];
   total: number;
+  totalRequired?: Record<string, number>;
 }) {
+  const showRequired = !!totalRequired;
+  const colSpan = showRequired ? 3 : 2;
+  const reqGrandTotal = showRequired
+    ? rows.reduce((sum, r) => sum + (totalRequired![r.label] ?? 0), 0)
+    : 0;
+
   return (
     <div className="card overflow-hidden">
       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
@@ -45,18 +68,26 @@ function SimpleSummaryTable({
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">
             <th className="text-left px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide">{columnLabel}</th>
-            <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-40">Labour Count</th>
+            {showRequired && (
+              <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-36">Total Required</th>
+            )}
+            <th className="text-right px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide w-36">Labour Count</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={2} className="px-4 py-6 text-center text-gray-400 text-sm">No data yet.</td>
+              <td colSpan={colSpan} className="px-4 py-6 text-center text-gray-400 text-sm">No data yet.</td>
             </tr>
           ) : (
             rows.map((r) => (
               <tr key={r.label} className="hover:bg-gray-50">
                 <td className="px-4 py-2 text-gray-800">{r.label}</td>
+                {showRequired && (
+                  <td className="px-4 py-2 text-right font-mono text-gray-500">
+                    {totalRequired![r.label] ?? '—'}
+                  </td>
+                )}
                 <td className="px-4 py-2 text-right font-mono text-gray-900">{r.labour_count}</td>
               </tr>
             ))
@@ -66,6 +97,9 @@ function SimpleSummaryTable({
           <tfoot>
             <tr className="bg-gray-50 border-t border-gray-200">
               <td className="px-4 py-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">Total</td>
+              {showRequired && (
+                <td className="px-4 py-2 text-right font-mono font-semibold text-gray-500">{reqGrandTotal}</td>
+              )}
               <td className="px-4 py-2 text-right font-mono font-semibold text-gray-900">{total}</td>
             </tr>
           </tfoot>
@@ -152,20 +186,23 @@ function MobilizerTable({ rows, dates }: { rows: MobilizerRow[]; dates: string[]
 export default function LabourMobilizationReportPage() {
   const { data, isLoading, error } = useQuery<ReportData>({
     queryKey: ['reports', 'labour-mobilization'],
-    queryFn: reportsApi.labourMobilization,
+    queryFn: () => reportsApi.labourMobilization(),
   });
 
-  const byPackage = (data?.by_package || []).map((r) => ({
-    label: r.package_name,
-    labour_count: r.labour_count,
+  const apiByPackage = Object.fromEntries(
+    (data?.by_package || []).map((r) => [r.package_name, r.labour_count])
+  );
+  const byPackage = Object.keys(TOTAL_REQUIRED).map((pkg) => ({
+    label: pkg,
+    labour_count: apiByPackage[pkg] ?? 0,
   }));
   const byType = (data?.by_type_of_work || []).map((r) => ({
     label: r.type_of_work,
     labour_count: r.labour_count,
   }));
-  const mobilizerRows = data?.by_mobilized_by || [];
+  const mobilizerRows  = data?.by_mobilized_by || [];
   const mobilizerDates = data?.mobilized_by_dates || [];
-  const totalLabour = data?.total_labour ?? 0;
+  const totalLabour    = data?.total_labour ?? 0;
 
   return (
     <div>
@@ -188,7 +225,7 @@ export default function LabourMobilizationReportPage() {
       ) : (
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <SimpleSummaryTable title="By Package" columnLabel="Package" rows={byPackage} total={totalLabour} />
+            <SimpleSummaryTable title="By Package" columnLabel="Package" rows={byPackage} total={totalLabour} totalRequired={TOTAL_REQUIRED} />
             <SimpleSummaryTable title="By Type of Work" columnLabel="Type of Work" rows={byType} total={totalLabour} />
           </div>
           <MobilizerTable rows={mobilizerRows} dates={mobilizerDates} />

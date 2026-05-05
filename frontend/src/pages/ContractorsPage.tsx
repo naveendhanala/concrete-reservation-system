@@ -607,6 +607,9 @@ function AddContractorRow({ onDone }: { onDone: () => void }) {
 export default function ContractorsPage() {
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState('');
+  const [filterMobilizedBy, setFilterMobilizedBy] = useState('');
+  const [filterPackage, setFilterPackage] = useState('');
+  const [filterTypeOfWork, setFilterTypeOfWork] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const { data: contractors = [], isLoading } = useQuery({
@@ -619,9 +622,20 @@ export default function ContractorsPage() {
     queryFn: packagesApi.list,
   });
 
-  const filtered = contractors.filter((c: Contractor) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Derive filter options from loaded data
+  const mobilizedByOptions = Array.from(
+    new Set(contractors.map((c: Contractor) => c.mobilized_by).filter(Boolean))
+  ).sort() as string[];
+
+  const hasFilters = filterMobilizedBy || filterPackage || filterTypeOfWork;
+
+  const filtered = contractors.filter((c: Contractor) => {
+    if (!c.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterMobilizedBy && (c.mobilized_by || '') !== filterMobilizedBy) return false;
+    if (filterPackage && !c.assignments?.some((a) => a.package_name === filterPackage)) return false;
+    if (filterTypeOfWork && !c.assignments?.some((a) => a.type_of_work === filterTypeOfWork)) return false;
+    return true;
+  });
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -647,13 +661,60 @@ export default function ContractorsPage() {
         </button>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-end gap-3">
         <input
-          className="input w-64 text-sm"
+          className="input w-48 text-sm"
           placeholder="Search by name..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <div>
+          <label className="label">Mobilized By</label>
+          <select
+            className="input text-sm"
+            value={filterMobilizedBy}
+            onChange={(e) => setFilterMobilizedBy(e.target.value)}
+          >
+            <option value="">All</option>
+            {mobilizedByOptions.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">Package</label>
+          <select
+            className="input text-sm"
+            value={filterPackage}
+            onChange={(e) => setFilterPackage(e.target.value)}
+          >
+            <option value="">All Packages</option>
+            {packages.map((p: Package) => (
+              <option key={p.package_id} value={p.package_name}>{p.package_name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label">Type of Work</label>
+          <select
+            className="input text-sm"
+            value={filterTypeOfWork}
+            onChange={(e) => setFilterTypeOfWork(e.target.value)}
+          >
+            <option value="">All Types</option>
+            {TYPE_OF_WORK.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </div>
+        {hasFilters && (
+          <button
+            onClick={() => { setFilterMobilizedBy(''); setFilterPackage(''); setFilterTypeOfWork(''); }}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 border border-gray-200 rounded-lg px-3 py-2 hover:border-red-200 transition-colors"
+          >
+            <X className="w-3.5 h-3.5" /> Clear
+          </button>
+        )}
       </div>
 
       <div className="card overflow-hidden">

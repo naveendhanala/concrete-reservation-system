@@ -17,6 +17,7 @@ import CalendarPage from './pages/CalendarPage';
 import ReportsPage from './pages/ReportsPage';
 import UsersPage from './pages/UsersPage';
 import ContractorsPage from './pages/ContractorsPage';
+import LabourMobilizationReportPage from './pages/LabourMobilizationReportPage';
 import MachineryPage from './pages/MachineryPage';
 import DeliveryLogsPage from './pages/DeliveryLogsPage';
 import SettingsPage from './pages/SettingsPage';
@@ -93,6 +94,9 @@ export default function App() {
             } />
             <Route path="contractors" element={
               <RoleRoute roles={['Admin', 'LabourMob']}><ContractorsPage /></RoleRoute>
+            } />
+            <Route path="labour-mobilization" element={
+              <RoleRoute roles={['Admin', 'LabourMob']}><LabourMobilizationReportPage /></RoleRoute>
             } />
             <Route path="machinery" element={<MachineryPage />} />
             <Route path="delivery-logs" element={

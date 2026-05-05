@@ -18,7 +18,8 @@ const navItems = [
   { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['PM','VP','ClusterHead','PMHead','PMManager','Admin'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['Admin'] },
   { to: '/contractors', icon: Building2, label: 'Contractors', roles: ['Admin', 'LabourMob'] },
-  { to: '/machinery', icon: Wrench, label: 'Machinery (Under Testing)', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin','Engineer','LabourMob'] },
+  { to: '/labour-mobilization', icon: BarChart2, label: 'Labour Mobilization Report', roles: ['Admin', 'LabourMob'] },
+  { to: '/machinery', icon: Wrench, label: 'Machinery (Under Testing)', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin','Engineer'] },
   { to: '/settings', icon: Settings, label: 'Settings', roles: ['Admin'] },
 ];
 

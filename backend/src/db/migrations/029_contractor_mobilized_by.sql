@@ -1,0 +1,2 @@
+ALTER TABLE contractors
+  ADD COLUMN IF NOT EXISTS mobilized_by VARCHAR(200);

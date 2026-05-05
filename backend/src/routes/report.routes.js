@@ -216,4 +216,89 @@ router.get('/audit', requireRole('Admin'), asyncHandler(async (req, res) => {
   res.json(rows);
 }));
 
+// Labour mobilization: labour totals grouped three ways, with a per-date pivot
+// of additional_expected for each mobilizer
+router.get('/labour-mobilization', requireRole('Admin', 'LabourMob'), asyncHandler(async (_req, res) => {
+  const ACTIVE = 'ca.active_flag = TRUE AND c.active_flag = TRUE';
+
+  const [
+    { rows: byPackage },
+    { rows: byTypeOfWork },
+    { rows: mobilizerTotals },
+    { rows: mobilizerDateRows },
+    { rows: allDates },
+    { rows: totalRow },
+  ] = await Promise.all([
+    query(
+      `SELECT p.package_id, p.package_name, COALESCE(SUM(ca.labour_count), 0)::int AS labour_count
+         FROM contractor_assignments ca
+         JOIN packages p ON p.package_id = ca.package_id
+         JOIN contractors c ON c.contractor_id = ca.contractor_id
+        WHERE ${ACTIVE}
+        GROUP BY p.package_id, p.package_name
+        ORDER BY p.package_name`
+    ),
+    query(
+      `SELECT ca.type_of_work, COALESCE(SUM(ca.labour_count), 0)::int AS labour_count
+         FROM contractor_assignments ca
+         JOIN contractors c ON c.contractor_id = ca.contractor_id
+        WHERE ${ACTIVE}
+        GROUP BY ca.type_of_work
+        ORDER BY ca.type_of_work`
+    ),
+    query(
+      `SELECT COALESCE(NULLIF(c.mobilized_by, ''), 'Unspecified') AS mobilized_by,
+              COALESCE(SUM(ca.labour_count), 0)::int AS labour_count
+         FROM contractor_assignments ca
+         JOIN contractors c ON c.contractor_id = ca.contractor_id
+        WHERE ${ACTIVE}
+        GROUP BY 1
+        ORDER BY 1`
+    ),
+    query(
+      `SELECT COALESCE(NULLIF(c.mobilized_by, ''), 'Unspecified') AS mobilized_by,
+              to_char(ca.expected_date, 'YYYY-MM-DD') AS expected_date,
+              COALESCE(SUM(ca.additional_expected), 0)::int AS additional_expected
+         FROM contractor_assignments ca
+         JOIN contractors c ON c.contractor_id = ca.contractor_id
+        WHERE ${ACTIVE} AND ca.expected_date IS NOT NULL AND ca.additional_expected IS NOT NULL
+        GROUP BY 1, 2`
+    ),
+    query(
+      `SELECT DISTINCT to_char(ca.expected_date, 'YYYY-MM-DD') AS expected_date
+         FROM contractor_assignments ca
+         JOIN contractors c ON c.contractor_id = ca.contractor_id
+        WHERE ${ACTIVE} AND ca.expected_date IS NOT NULL AND ca.additional_expected IS NOT NULL
+        ORDER BY 1`
+    ),
+    query(
+      `SELECT COALESCE(SUM(ca.labour_count), 0)::int AS total_labour
+         FROM contractor_assignments ca
+         JOIN contractors c ON c.contractor_id = ca.contractor_id
+        WHERE ${ACTIVE}`
+    ),
+  ]);
+
+  // Pivot mobilizerDateRows into { [mobilized_by]: { [date]: sum } }
+  const pivot = new Map();
+  for (const row of mobilizerDateRows) {
+    if (!pivot.has(row.mobilized_by)) pivot.set(row.mobilized_by, {});
+    pivot.get(row.mobilized_by)[row.expected_date] = row.additional_expected;
+  }
+
+  const by_mobilized_by = mobilizerTotals.map((m) => ({
+    mobilized_by: m.mobilized_by,
+    labour_count: m.labour_count,
+    additional_expected_by_date: pivot.get(m.mobilized_by) || {},
+  }));
+
+  res.json({
+    total_labour: totalRow[0]?.total_labour || 0,
+    by_package: byPackage,
+    by_type_of_work: byTypeOfWork,
+    by_mobilized_by,
+    mobilized_by_dates: allDates.map((r) => r.expected_date),
+  });
+}));
+
 module.exports = router;

@@ -10,6 +10,7 @@ const TOTAL_REQUIRED: Record<string, number> = {
   'N14': 150,
   'E8': 260,
   'E9': 250,
+  'E13': 230,
   'N7': 350,
   'N10': 550,
   'Zone 3A': 538,

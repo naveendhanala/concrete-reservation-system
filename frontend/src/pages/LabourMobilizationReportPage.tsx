@@ -1,5 +1,5 @@
 // src/pages/LabourMobilizationReportPage.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportsApi } from '../api/index';
 import { Users } from 'lucide-react';
@@ -27,6 +27,7 @@ interface MobilizerRow {
 }
 
 interface ReportData {
+  effectiveDate: string;
   total_labour: number;
   by_package: { package_id: string; package_name: string; labour_count: number }[];
   by_type_of_work: { type_of_work: string; labour_count: number }[];
@@ -186,12 +187,18 @@ function MobilizerTable({ rows, dates }: { rows: MobilizerRow[]; dates: string[]
 }
 
 export default function LabourMobilizationReportPage() {
-  const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reportDate, setReportDate] = useState('');
 
   const { data, isLoading, error } = useQuery<ReportData>({
     queryKey: ['reports', 'labour-mobilization', reportDate],
     queryFn: () => reportsApi.labourMobilization(reportDate),
   });
+
+  useEffect(() => {
+    if (data?.effectiveDate && !reportDate) {
+      setReportDate(data.effectiveDate);
+    }
+  }, [data?.effectiveDate]);
 
   const apiByPackage = Object.fromEntries(
     (data?.by_package || []).map((r) => [r.package_name, r.labour_count])
@@ -219,7 +226,8 @@ export default function LabourMobilizationReportPage() {
           <input
             type="date"
             value={reportDate}
-            onChange={(e) => setReportDate(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => { if (e.target.value) setReportDate(e.target.value); }}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
             aria-label="Report date"
           />

@@ -219,8 +219,19 @@ router.get('/audit', requireRole('Admin'), asyncHandler(async (req, res) => {
 // Labour mobilization: labour totals grouped three ways, with a per-date pivot
 // of additional_expected for each mobilizer
 router.get('/labour-mobilization', requireRole('Admin', 'LabourMob'), asyncHandler(async (req, res) => {
-  const date = req.query.date || new Date().toISOString().slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AppError('date must be in YYYY-MM-DD format', 400);
+  const { date: rawDate } = req.query;
+  let date;
+  if (rawDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) throw new AppError('date must be in YYYY-MM-DD format', 400);
+    const parsed = new Date(rawDate);
+    if (isNaN(parsed.getTime())) throw new AppError('date must be a valid calendar date', 400);
+    date = rawDate;
+  } else {
+    const { rows: maxRows } = await query(
+      `SELECT COALESCE(MAX(date)::text, CURRENT_DATE::text) AS date FROM contractor_daily_log`
+    );
+    date = maxRows[0].date;
+  }
 
   const ACTIVE = 'c.active_flag = TRUE';
 
@@ -302,6 +313,7 @@ router.get('/labour-mobilization', requireRole('Admin', 'LabourMob'), asyncHandl
   }));
 
   res.json({
+    effectiveDate: date,
     total_labour: totalRow[0]?.total_labour || 0,
     by_package: byPackage,
     by_type_of_work: byTypeOfWork,

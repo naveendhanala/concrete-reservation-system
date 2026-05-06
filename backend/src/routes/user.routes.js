@@ -83,6 +83,7 @@ router.get('/contractors', asyncHandler(async (req, res) => {
 
 router.get('/contractors/daily-log', asyncHandler(async (req, res) => {
   const date = req.query.date || new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AppError('date must be in YYYY-MM-DD format', 400);
   const { rows } = await query(
     `SELECT cdl.log_id, cdl.contractor_id, c.name AS contractor_name,
             cdl.package_id, p.package_name, cdl.type_of_work, cdl.date,

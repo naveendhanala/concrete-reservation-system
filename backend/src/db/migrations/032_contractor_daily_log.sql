@@ -13,6 +13,13 @@ CREATE TABLE IF NOT EXISTS contractor_daily_log (
   UNIQUE (contractor_id, package_id, type_of_work, date)
 );
 
+CREATE INDEX IF NOT EXISTS idx_contractor_daily_log_contractor
+  ON contractor_daily_log(contractor_id);
+CREATE INDEX IF NOT EXISTS idx_contractor_daily_log_package
+  ON contractor_daily_log(package_id);
+CREATE INDEX IF NOT EXISTS idx_contractor_daily_log_date
+  ON contractor_daily_log(date);
+
 -- Migrate existing data; use created_at::date so history is preserved
 INSERT INTO contractor_daily_log
   (contractor_id, package_id, type_of_work, date, available_count, additional_expected, expected_date, created_at)

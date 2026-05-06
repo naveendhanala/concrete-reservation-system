@@ -218,8 +218,11 @@ router.get('/audit', requireRole('Admin'), asyncHandler(async (req, res) => {
 
 // Labour mobilization: labour totals grouped three ways, with a per-date pivot
 // of additional_expected for each mobilizer
-router.get('/labour-mobilization', requireRole('Admin', 'LabourMob'), asyncHandler(async (_req, res) => {
-  const ACTIVE = 'ca.active_flag = TRUE AND c.active_flag = TRUE';
+router.get('/labour-mobilization', requireRole('Admin', 'LabourMob'), asyncHandler(async (req, res) => {
+  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new AppError('date must be in YYYY-MM-DD format', 400);
+
+  const ACTIVE = 'c.active_flag = TRUE';
 
   const [
     { rows: byPackage },
@@ -230,52 +233,58 @@ router.get('/labour-mobilization', requireRole('Admin', 'LabourMob'), asyncHandl
     { rows: totalRow },
   ] = await Promise.all([
     query(
-      `SELECT p.package_id, p.package_name, COALESCE(SUM(ca.labour_count), 0)::int AS labour_count
-         FROM contractor_assignments ca
-         JOIN packages p ON p.package_id = ca.package_id
-         JOIN contractors c ON c.contractor_id = ca.contractor_id
-        WHERE ${ACTIVE}
+      `SELECT p.package_id, p.package_name, COALESCE(SUM(cdl.available_count), 0)::int AS labour_count
+         FROM contractor_daily_log cdl
+         JOIN packages p ON p.package_id = cdl.package_id
+         JOIN contractors c ON c.contractor_id = cdl.contractor_id
+        WHERE ${ACTIVE} AND cdl.date = $1
         GROUP BY p.package_id, p.package_name
-        ORDER BY p.package_name`
+        ORDER BY p.package_name`,
+      [date]
     ),
     query(
-      `SELECT ca.type_of_work, COALESCE(SUM(ca.labour_count), 0)::int AS labour_count
-         FROM contractor_assignments ca
-         JOIN contractors c ON c.contractor_id = ca.contractor_id
-        WHERE ${ACTIVE}
-        GROUP BY ca.type_of_work
-        ORDER BY ca.type_of_work`
+      `SELECT cdl.type_of_work, COALESCE(SUM(cdl.available_count), 0)::int AS labour_count
+         FROM contractor_daily_log cdl
+         JOIN contractors c ON c.contractor_id = cdl.contractor_id
+        WHERE ${ACTIVE} AND cdl.date = $1
+        GROUP BY cdl.type_of_work
+        ORDER BY cdl.type_of_work`,
+      [date]
     ),
     query(
       `SELECT COALESCE(NULLIF(c.mobilized_by, ''), 'Unspecified') AS mobilized_by,
-              COALESCE(SUM(ca.labour_count), 0)::int AS labour_count
-         FROM contractor_assignments ca
-         JOIN contractors c ON c.contractor_id = ca.contractor_id
-        WHERE ${ACTIVE}
+              COALESCE(SUM(cdl.available_count), 0)::int AS labour_count
+         FROM contractor_daily_log cdl
+         JOIN contractors c ON c.contractor_id = cdl.contractor_id
+        WHERE ${ACTIVE} AND cdl.date = $1
         GROUP BY 1
-        ORDER BY 1`
+        ORDER BY 1`,
+      [date]
     ),
     query(
       `SELECT COALESCE(NULLIF(c.mobilized_by, ''), 'Unspecified') AS mobilized_by,
-              to_char(ca.expected_date, 'YYYY-MM-DD') AS expected_date,
-              COALESCE(SUM(ca.additional_expected), 0)::int AS additional_expected
-         FROM contractor_assignments ca
-         JOIN contractors c ON c.contractor_id = ca.contractor_id
-        WHERE ${ACTIVE} AND ca.expected_date IS NOT NULL AND ca.additional_expected IS NOT NULL
-        GROUP BY 1, 2`
+              to_char(cdl.expected_date, 'YYYY-MM-DD') AS expected_date,
+              COALESCE(SUM(cdl.additional_expected), 0)::int AS additional_expected
+         FROM contractor_daily_log cdl
+         JOIN contractors c ON c.contractor_id = cdl.contractor_id
+        WHERE ${ACTIVE} AND cdl.date = $1 AND cdl.expected_date IS NOT NULL AND cdl.additional_expected IS NOT NULL
+        GROUP BY 1, 2`,
+      [date]
     ),
     query(
-      `SELECT DISTINCT to_char(ca.expected_date, 'YYYY-MM-DD') AS expected_date
-         FROM contractor_assignments ca
-         JOIN contractors c ON c.contractor_id = ca.contractor_id
-        WHERE ${ACTIVE} AND ca.expected_date IS NOT NULL AND ca.additional_expected IS NOT NULL
-        ORDER BY 1`
+      `SELECT DISTINCT to_char(cdl.expected_date, 'YYYY-MM-DD') AS expected_date
+         FROM contractor_daily_log cdl
+         JOIN contractors c ON c.contractor_id = cdl.contractor_id
+        WHERE ${ACTIVE} AND cdl.date = $1 AND cdl.expected_date IS NOT NULL AND cdl.additional_expected IS NOT NULL
+        ORDER BY 1`,
+      [date]
     ),
     query(
-      `SELECT COALESCE(SUM(ca.labour_count), 0)::int AS total_labour
-         FROM contractor_assignments ca
-         JOIN contractors c ON c.contractor_id = ca.contractor_id
-        WHERE ${ACTIVE}`
+      `SELECT COALESCE(SUM(cdl.available_count), 0)::int AS total_labour
+         FROM contractor_daily_log cdl
+         JOIN contractors c ON c.contractor_id = cdl.contractor_id
+        WHERE ${ACTIVE} AND cdl.date = $1`,
+      [date]
     ),
   ]);
 

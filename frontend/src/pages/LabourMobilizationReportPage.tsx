@@ -1,4 +1,5 @@
 // src/pages/LabourMobilizationReportPage.tsx
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportsApi } from '../api/index';
 import { Users } from 'lucide-react';
@@ -185,9 +186,11 @@ function MobilizerTable({ rows, dates }: { rows: MobilizerRow[]; dates: string[]
 }
 
 export default function LabourMobilizationReportPage() {
+  const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10));
+
   const { data, isLoading, error } = useQuery<ReportData>({
-    queryKey: ['reports', 'labour-mobilization'],
-    queryFn: () => reportsApi.labourMobilization(),
+    queryKey: ['reports', 'labour-mobilization', reportDate],
+    queryFn: () => reportsApi.labourMobilization(reportDate),
   });
 
   const apiByPackage = Object.fromEntries(
@@ -210,12 +213,21 @@ export default function LabourMobilizationReportPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Labour Mobilization Report</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Active contractor assignments only</p>
+          <p className="text-sm text-gray-400 mt-0.5">Daily contractor log</p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-100">
-          <Users className="w-4 h-4 text-blue-600" />
-          <span className="text-xs text-blue-700 font-medium">Total Labour</span>
-          <span className="text-lg font-bold text-blue-900 font-mono">{totalLabour}</span>
+        <div className="flex items-center gap-4">
+          <input
+            type="date"
+            value={reportDate}
+            onChange={(e) => setReportDate(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            aria-label="Report date"
+          />
+          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-100">
+            <Users className="w-4 h-4 text-blue-600" />
+            <span className="text-xs text-blue-700 font-medium">Total Labour</span>
+            <span className="text-lg font-bold text-blue-900 font-mono">{totalLabour}</span>
+          </div>
         </div>
       </div>
 

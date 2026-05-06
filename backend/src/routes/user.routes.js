@@ -79,6 +79,97 @@ router.get('/contractors', asyncHandler(async (req, res) => {
   res.json(rows);
 }));
 
+// ── Contractor daily-log routes ────────────────────────────────────────────
+
+router.get('/contractors/daily-log', asyncHandler(async (req, res) => {
+  const date = req.query.date || new Date().toISOString().slice(0, 10);
+  const { rows } = await query(
+    `SELECT cdl.log_id, cdl.contractor_id, c.name AS contractor_name,
+            cdl.package_id, p.package_name, cdl.type_of_work, cdl.date,
+            cdl.available_count, cdl.additional_expected, cdl.expected_date
+     FROM contractor_daily_log cdl
+     JOIN contractors c ON c.contractor_id = cdl.contractor_id
+     JOIN packages p ON p.package_id = cdl.package_id
+     WHERE cdl.date = $1
+     ORDER BY c.name, p.package_name, cdl.type_of_work`,
+    [date]
+  );
+  res.json(rows);
+}));
+
+router.post('/contractors/daily-log', requireRole('Admin', 'LabourMob'), asyncHandler(async (req, res) => {
+  const { contractor_id, package_id, type_of_work, available_count, additional_expected, expected_date } = req.body;
+  if (!contractor_id || !package_id || !type_of_work) {
+    throw new AppError('contractor_id, package_id, and type_of_work are required', 400);
+  }
+  const parsedCount = parseNonNegativeInt(available_count, 'available_count');
+  const parsedExpected = (additional_expected != null && additional_expected !== '')
+    ? parseNonNegativeInt(additional_expected, 'additional_expected')
+    : null;
+  try {
+    const { rows } = await query(
+      `INSERT INTO contractor_daily_log
+         (contractor_id, package_id, type_of_work, available_count, additional_expected, expected_date)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING log_id, contractor_id, package_id, type_of_work, date,
+                 available_count, additional_expected, expected_date`,
+      [contractor_id, package_id, type_of_work, parsedCount, parsedExpected, expected_date || null]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    if (err.code === '23505') throw new AppError('An entry for this contractor, package, and type of work already exists for today', 409);
+    if (err.code === '23503') throw new AppError('Invalid contractor_id or package_id', 400);
+    throw err;
+  }
+}));
+
+router.patch('/contractors/daily-log/:logId', requireRole('Admin', 'LabourMob'), asyncHandler(async (req, res) => {
+  const { logId } = req.params;
+  const { available_count, additional_expected, expected_date } = req.body;
+
+  const fields = [];
+  const values = [];
+  let i = 1;
+
+  if (available_count !== undefined) {
+    fields.push(`available_count = $${i++}`);
+    values.push(parseNonNegativeInt(available_count, 'available_count'));
+  }
+  if ('additional_expected' in req.body) {
+    const val = (additional_expected === null || additional_expected === '')
+      ? null
+      : parseNonNegativeInt(additional_expected, 'additional_expected');
+    fields.push(`additional_expected = $${i++}`);
+    values.push(val);
+  }
+  if ('expected_date' in req.body) {
+    fields.push(`expected_date = $${i++}`);
+    values.push(expected_date || null);
+  }
+  if (fields.length === 0) throw new AppError('No fields to update', 400);
+  fields.push(`updated_at = NOW()`);
+  values.push(logId);
+
+  const { rows } = await query(
+    `UPDATE contractor_daily_log SET ${fields.join(', ')}
+     WHERE log_id = $${i} AND date = CURRENT_DATE
+     RETURNING *`,
+    values
+  );
+  if (rows.length === 0) throw new AppError('Entry not found or cannot edit past entries', 404);
+  res.json(rows[0]);
+}));
+
+router.delete('/contractors/daily-log/:logId', requireRole('Admin', 'LabourMob'), asyncHandler(async (req, res) => {
+  const { logId } = req.params;
+  const { rows } = await query(
+    'DELETE FROM contractor_daily_log WHERE log_id = $1 AND date = CURRENT_DATE RETURNING log_id',
+    [logId]
+  );
+  if (rows.length === 0) throw new AppError('Entry not found or cannot delete past entries', 404);
+  res.status(204).end();
+}));
+
 // List assignments for a single contractor
 router.get('/contractors/:id/assignments', asyncHandler(async (req, res) => {
   const { rows } = await query(

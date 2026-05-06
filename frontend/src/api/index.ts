@@ -99,8 +99,8 @@ export const usersApi = {
   deleteEngineer: (id: string) =>
     client.delete(`/users/engineers/${id}`).then((r) => r.data),
 
-  getContractors: (search?: string, all?: boolean, include?: 'assignments') =>
-    client.get('/users/contractors', { params: { search, all, include } }).then((r) => r.data),
+  getContractors: (search?: string, all?: boolean) =>
+    client.get('/users/contractors', { params: { search, all } }).then((r) => r.data),
 
   createContractor: (data: Record<string, any>) =>
     client.post('/users/contractors', data).then((r) => r.data),
@@ -108,26 +108,29 @@ export const usersApi = {
   updateContractor: (id: string, data: Record<string, any>) =>
     client.patch(`/users/contractors/${id}`, data).then((r) => r.data),
 
-  getContractorAssignments: (contractorId: string) =>
-    client.get(`/users/contractors/${contractorId}/assignments`).then((r) => r.data),
+  getDailyLog: (date?: string) =>
+    client.get('/users/contractors/daily-log', { params: { date } }).then((r) => r.data),
 
-  createContractorAssignment: (
-    contractorId: string,
+  createDailyLogEntry: (data: {
+    contractor_id: string;
+    package_id: string;
+    type_of_work: string;
+    available_count: number;
+    additional_expected?: number | null;
+    expected_date?: string | null;
+  }) => client.post('/users/contractors/daily-log', data).then((r) => r.data),
+
+  updateDailyLogEntry: (
+    logId: string,
     data: {
-      package_id: string;
-      type_of_work: string;
-      labour_count: number;
+      available_count?: number;
       additional_expected?: number | null;
       expected_date?: string | null;
     }
-  ) =>
-    client.post(`/users/contractors/${contractorId}/assignments`, data).then((r) => r.data),
+  ) => client.patch(`/users/contractors/daily-log/${logId}`, data).then((r) => r.data),
 
-  updateContractorAssignment: (contractorId: string, assignmentId: string, data: Record<string, any>) =>
-    client.patch(`/users/contractors/${contractorId}/assignments/${assignmentId}`, data).then((r) => r.data),
-
-  deleteContractorAssignment: (contractorId: string, assignmentId: string) =>
-    client.delete(`/users/contractors/${contractorId}/assignments/${assignmentId}`).then((r) => r.data),
+  deleteDailyLogEntry: (logId: string) =>
+    client.delete(`/users/contractors/daily-log/${logId}`).then((r) => r.data),
 
   create: (data: Record<string, any>) =>
     client.post('/users', data).then((r) => r.data),

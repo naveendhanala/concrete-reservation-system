@@ -245,7 +245,12 @@ function DailyLogRow({ entry, isToday }: { entry: DailyLogEntry; isToday: boolea
             >
               <Check className="w-4 h-4" />
             </button>
-            <button onClick={() => setEditing(false)} className="text-gray-500 hover:text-gray-700">
+            <button onClick={() => {
+              setAvailableCount(String(entry.available_count));
+              setAdditionalExpected(entry.additional_expected != null ? String(entry.additional_expected) : '');
+              setExpectedDate(entry.expected_date ?? '');
+              setEditing(false);
+            }} className="text-gray-500 hover:text-gray-700">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -353,7 +358,12 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
             >
               <Check className="w-4 h-4" />
             </button>
-            <button onClick={() => setEditing(false)} className="text-gray-500 hover:text-gray-700">
+            <button onClick={() => {
+              setName(contractor.name);
+              setContact(contractor.contact ?? '');
+              setMobilizedBy(contractor.mobilized_by ?? '');
+              setEditing(false);
+            }} className="text-gray-500 hover:text-gray-700">
               <X className="w-4 h-4" />
             </button>
           </div>

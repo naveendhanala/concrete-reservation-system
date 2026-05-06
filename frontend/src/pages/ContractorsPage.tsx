@@ -1,9 +1,8 @@
-// src/pages/ContractorsPage.tsx
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersApi, packagesApi } from '../api/index';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, X, Check, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Check, X } from 'lucide-react';
+import { usersApi, packagesApi } from '../api';
 
 const TYPE_OF_WORK = [
   'Bridges', 'SWD', 'Precast Manholes', 'Precast SWD', 'Camp Works', 'Kerb',
@@ -11,16 +10,17 @@ const TYPE_OF_WORK = [
   'Casting Yard', 'Power EHV',
 ];
 
-interface Assignment {
-  assignment_id: string;
+interface DailyLogEntry {
+  log_id: string;
   contractor_id: string;
+  contractor_name: string;
   package_id: string;
   package_name: string;
   type_of_work: string;
-  labour_count: number;
+  date: string;
+  available_count: number;
   additional_expected: number | null;
   expected_date: string | null;
-  active_flag: boolean;
 }
 
 interface Package {
@@ -34,325 +34,219 @@ interface Contractor {
   contact: string | null;
   mobilized_by: string | null;
   active_flag: boolean;
-  assignments?: Assignment[];
 }
 
-function AssignmentsEditor({
-  contractor,
+// ── Daily Log ─────────────────────────────────────────────────────────────────
+
+function AddDailyLogRow({
+  contractors,
   packages,
+  onDone,
 }: {
-  contractor: Contractor;
+  contractors: Contractor[];
   packages: Package[];
+  onDone: () => void;
 }) {
-  const queryClient = useQueryClient();
-  const assignments = contractor.assignments || [];
-  const [draft, setDraft] = useState<{
-    package_id: string;
-    type_of_work: string;
-    labour_count: string;
-    additional_expected: string;
-    expected_date: string;
-  } | null>(null);
+  const qc = useQueryClient();
+  const [contractorId, setContractorId] = useState('');
+  const [packageId, setPackageId] = useState('');
+  const [typeOfWork, setTypeOfWork] = useState('');
+  const [availableCount, setAvailableCount] = useState('');
+  const [additionalExpected, setAdditionalExpected] = useState('');
+  const [expectedDate, setExpectedDate] = useState('');
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['contractors'] });
-
-  const createMutation = useMutation({
-    mutationFn: (data: {
-      package_id: string;
-      type_of_work: string;
-      labour_count: number;
-      additional_expected: number | null;
-      expected_date: string | null;
-    }) =>
-      usersApi.createContractorAssignment(contractor.contractor_id, data),
+  const mut = useMutation({
+    mutationFn: () =>
+      usersApi.createDailyLogEntry({
+        contractor_id: contractorId,
+        package_id: packageId,
+        type_of_work: typeOfWork,
+        available_count: parseInt(availableCount, 10),
+        additional_expected: additionalExpected ? parseInt(additionalExpected, 10) : null,
+        expected_date: expectedDate || null,
+      }),
     onSuccess: () => {
-      toast.success('Assignment added');
-      setDraft(null);
-      invalidate();
+      qc.invalidateQueries({ queryKey: ['daily-log'] });
+      onDone();
     },
-    onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to add'),
+    onError: (e: any) => {
+      if (e.response?.status === 409) {
+        toast.error('Entry already exists for this combination today — edit the existing row instead.');
+      } else {
+        toast.error('Failed to add entry');
+      }
+    },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ assignmentId, data }: { assignmentId: string; data: Record<string, any> }) =>
-      usersApi.updateContractorAssignment(contractor.contractor_id, assignmentId, data),
-    onSuccess: () => {
-      toast.success('Assignment updated');
-      invalidate();
-    },
-    onError: (err: any) => toast.error(err.response?.data?.error || 'Update failed'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (assignmentId: string) =>
-      usersApi.deleteContractorAssignment(contractor.contractor_id, assignmentId),
-    onSuccess: () => {
-      toast.success('Assignment removed');
-      invalidate();
-    },
-    onError: (err: any) => toast.error(err.response?.data?.error || 'Delete failed'),
-  });
-
-  const saveDraft = () => {
-    if (!draft) return;
-    const count = parseInt(draft.labour_count, 10);
-    if (!draft.package_id || !draft.type_of_work || !Number.isInteger(count) || count < 0) {
-      toast.error('Fill Package, Type of Work and a valid Available Count');
+  const handleSave = () => {
+    if (!contractorId || !packageId || !typeOfWork) {
+      toast.error('Contractor, package, and type of work are required');
       return;
     }
-    let addl: number | null = null;
-    if (draft.additional_expected !== '') {
-      const parsed = parseInt(draft.additional_expected, 10);
-      if (!Number.isInteger(parsed) || parsed < 0) {
-        toast.error('Additional Expected must be a non-negative integer');
-        return;
-      }
-      addl = parsed;
+    const count = parseInt(availableCount, 10);
+    if (isNaN(count) || count < 0) {
+      toast.error('Available count must be a non-negative number');
+      return;
     }
-    createMutation.mutate({
-      package_id: draft.package_id,
-      type_of_work: draft.type_of_work,
-      labour_count: count,
-      additional_expected: addl,
-      expected_date: draft.expected_date || null,
-    });
+    mut.mutate();
   };
 
   return (
-    <div className="bg-gray-50 border-t border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-          Package / Type of Work / Available Count / Additional Expected / Date
-        </h4>
-        {!draft && (
-          <button
-            onClick={() => setDraft({
-              package_id: '',
-              type_of_work: '',
-              labour_count: '',
-              additional_expected: '',
-              expected_date: '',
-            })}
-            className="text-xs flex items-center gap-1 px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
-          >
-            <Plus className="w-3 h-3" /> Add Row
-          </button>
-        )}
-      </div>
-
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-xs text-gray-500 uppercase tracking-wide">
-            <th className="text-left py-1 px-2">Package</th>
-            <th className="text-left py-1 px-2">Type of Work</th>
-            <th className="text-left py-1 px-2 w-32">Available Count</th>
-            <th className="text-left py-1 px-2 w-36">Additional Expected</th>
-            <th className="text-left py-1 px-2 w-40">Date</th>
-            <th className="text-left py-1 px-2 w-20">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {assignments.map((a) => (
-            <AssignmentRow
-              key={a.assignment_id}
-              assignment={a}
-              packages={packages}
-              onSave={(data) => updateMutation.mutate({ assignmentId: a.assignment_id, data })}
-              onDelete={() => {
-                if (confirm('Remove this assignment?')) deleteMutation.mutate(a.assignment_id);
-              }}
-            />
+    <tr className="bg-green-50">
+      <td className="px-3 py-2">
+        <select
+          value={contractorId}
+          onChange={(e) => setContractorId(e.target.value)}
+          className="border rounded px-2 py-1 text-sm w-full"
+        >
+          <option value="">Select contractor...</option>
+          {contractors.map((c) => (
+            <option key={c.contractor_id} value={c.contractor_id}>{c.name}</option>
           ))}
-          {draft && (
-            <tr className="bg-green-50">
-              <td className="py-1 px-2">
-                <select
-                  className="input py-1 text-sm"
-                  value={draft.package_id}
-                  onChange={(e) => setDraft({ ...draft, package_id: e.target.value })}
-                >
-                  <option value="">Select package</option>
-                  {packages.map((p) => (
-                    <option key={p.package_id} value={p.package_id}>{p.package_name}</option>
-                  ))}
-                </select>
-              </td>
-              <td className="py-1 px-2">
-                <select
-                  className="input py-1 text-sm"
-                  value={draft.type_of_work}
-                  onChange={(e) => setDraft({ ...draft, type_of_work: e.target.value })}
-                >
-                  <option value="">Select type</option>
-                  {TYPE_OF_WORK.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </td>
-              <td className="py-1 px-2">
-                <input
-                  type="number"
-                  min={0}
-                  className="input py-1 text-sm"
-                  placeholder="0"
-                  value={draft.labour_count}
-                  onChange={(e) => setDraft({ ...draft, labour_count: e.target.value })}
-                />
-              </td>
-              <td className="py-1 px-2">
-                <input
-                  type="number"
-                  min={0}
-                  className="input py-1 text-sm"
-                  placeholder="0"
-                  value={draft.additional_expected}
-                  onChange={(e) => setDraft({ ...draft, additional_expected: e.target.value })}
-                />
-              </td>
-              <td className="py-1 px-2">
-                <input
-                  type="date"
-                  className="input py-1 text-sm"
-                  value={draft.expected_date}
-                  onChange={(e) => setDraft({ ...draft, expected_date: e.target.value })}
-                />
-              </td>
-              <td className="py-1 px-2">
-                <div className="flex gap-1">
-                  <button
-                    onClick={saveDraft}
-                    disabled={createMutation.isPending}
-                    className="p-1.5 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setDraft(null)}
-                    className="p-1.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          )}
-          {assignments.length === 0 && !draft && (
-            <tr>
-              <td colSpan={6} className="py-3 px-2 text-center text-xs text-gray-400">
-                No assignments yet. Click "Add Row" to add one.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+        </select>
+      </td>
+      <td className="px-3 py-2">
+        <select
+          value={packageId}
+          onChange={(e) => setPackageId(e.target.value)}
+          className="border rounded px-2 py-1 text-sm w-full"
+        >
+          <option value="">Select package...</option>
+          {packages.map((p) => (
+            <option key={p.package_id} value={p.package_id}>{p.package_name}</option>
+          ))}
+        </select>
+      </td>
+      <td className="px-3 py-2">
+        <select
+          value={typeOfWork}
+          onChange={(e) => setTypeOfWork(e.target.value)}
+          className="border rounded px-2 py-1 text-sm w-full"
+        >
+          <option value="">Select type...</option>
+          {TYPE_OF_WORK.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="number"
+          min="0"
+          value={availableCount}
+          onChange={(e) => setAvailableCount(e.target.value)}
+          className="border rounded px-2 py-1 text-sm w-24"
+          placeholder="0"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="number"
+          min="0"
+          value={additionalExpected}
+          onChange={(e) => setAdditionalExpected(e.target.value)}
+          className="border rounded px-2 py-1 text-sm w-24"
+          placeholder="—"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <input
+          type="date"
+          value={expectedDate}
+          onChange={(e) => setExpectedDate(e.target.value)}
+          className="border rounded px-2 py-1 text-sm"
+        />
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex gap-2">
+          <button
+            onClick={handleSave}
+            disabled={mut.isPending}
+            className="text-green-600 hover:text-green-800 disabled:opacity-50"
+          >
+            <Check className="w-4 h-4" />
+          </button>
+          <button onClick={onDone} className="text-gray-500 hover:text-gray-700">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
 
-function AssignmentRow({
-  assignment,
-  packages,
-  onSave,
-  onDelete,
-}: {
-  assignment: Assignment;
-  packages: Package[];
-  onSave: (data: Record<string, any>) => void;
-  onDelete: () => void;
-}) {
+function DailyLogRow({ entry, isToday }: { entry: DailyLogEntry; isToday: boolean }) {
+  const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
-  const [packageId, setPackageId] = useState(assignment.package_id);
-  const [typeOfWork, setTypeOfWork] = useState(assignment.type_of_work);
-  const [labourCount, setLabourCount] = useState(String(assignment.labour_count));
+  const [availableCount, setAvailableCount] = useState(String(entry.available_count));
   const [additionalExpected, setAdditionalExpected] = useState(
-    assignment.additional_expected == null ? '' : String(assignment.additional_expected)
+    entry.additional_expected != null ? String(entry.additional_expected) : ''
   );
-  const [expectedDate, setExpectedDate] = useState(
-    assignment.expected_date ? assignment.expected_date.slice(0, 10) : ''
-  );
+  const [expectedDate, setExpectedDate] = useState(entry.expected_date ?? '');
+
+  const updateMut = useMutation({
+    mutationFn: () =>
+      usersApi.updateDailyLogEntry(entry.log_id, {
+        available_count: parseInt(availableCount, 10),
+        additional_expected: additionalExpected ? parseInt(additionalExpected, 10) : null,
+        expected_date: expectedDate || null,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['daily-log'] });
+      setEditing(false);
+    },
+    onError: () => toast.error('Failed to update entry'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () => usersApi.deleteDailyLogEntry(entry.log_id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['daily-log'] }),
+    onError: () => toast.error('Failed to delete entry'),
+  });
 
   if (editing) {
     return (
       <tr className="bg-blue-50">
-        <td className="py-1 px-2">
-          <select className="input py-1 text-sm" value={packageId} onChange={(e) => setPackageId(e.target.value)}>
-            {packages.map((p) => (
-              <option key={p.package_id} value={p.package_id}>{p.package_name}</option>
-            ))}
-          </select>
-        </td>
-        <td className="py-1 px-2">
-          <select className="input py-1 text-sm" value={typeOfWork} onChange={(e) => setTypeOfWork(e.target.value)}>
-            {TYPE_OF_WORK.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </td>
-        <td className="py-1 px-2">
+        <td className="px-3 py-2 text-sm font-medium text-gray-700">{entry.contractor_name}</td>
+        <td className="px-3 py-2 text-sm text-gray-600">{entry.package_name}</td>
+        <td className="px-3 py-2 text-sm text-gray-600">{entry.type_of_work}</td>
+        <td className="px-3 py-2">
           <input
             type="number"
-            min={0}
-            className="input py-1 text-sm"
-            value={labourCount}
-            onChange={(e) => setLabourCount(e.target.value)}
+            min="0"
+            value={availableCount}
+            onChange={(e) => setAvailableCount(e.target.value)}
+            className="border rounded px-2 py-1 text-sm w-24"
           />
         </td>
-        <td className="py-1 px-2">
+        <td className="px-3 py-2">
           <input
             type="number"
-            min={0}
-            className="input py-1 text-sm"
+            min="0"
             value={additionalExpected}
             onChange={(e) => setAdditionalExpected(e.target.value)}
+            className="border rounded px-2 py-1 text-sm w-24"
           />
         </td>
-        <td className="py-1 px-2">
+        <td className="px-3 py-2">
           <input
             type="date"
-            className="input py-1 text-sm"
             value={expectedDate}
             onChange={(e) => setExpectedDate(e.target.value)}
+            className="border rounded px-2 py-1 text-sm"
           />
         </td>
-        <td className="py-1 px-2">
-          <div className="flex gap-1">
+        <td className="px-3 py-2">
+          <div className="flex gap-2">
             <button
-              onClick={() => {
-                const count = parseInt(labourCount, 10);
-                if (!Number.isInteger(count) || count < 0) {
-                  toast.error('Enter a valid available count');
-                  return;
-                }
-                let addl: number | null = null;
-                if (additionalExpected !== '') {
-                  const parsed = parseInt(additionalExpected, 10);
-                  if (!Number.isInteger(parsed) || parsed < 0) {
-                    toast.error('Additional Expected must be a non-negative integer');
-                    return;
-                  }
-                  addl = parsed;
-                }
-                onSave({
-                  package_id: packageId,
-                  type_of_work: typeOfWork,
-                  labour_count: count,
-                  additional_expected: addl,
-                  expected_date: expectedDate || null,
-                });
-                setEditing(false);
-              }}
-              className="p-1.5 rounded bg-green-600 text-white hover:bg-green-700"
+              onClick={() => updateMut.mutate()}
+              disabled={updateMut.isPending}
+              className="text-green-600 hover:text-green-800 disabled:opacity-50"
             >
-              <Check className="w-3.5 h-3.5" />
+              <Check className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => {
-                setEditing(false);
-                setPackageId(assignment.package_id);
-                setTypeOfWork(assignment.type_of_work);
-                setLabourCount(String(assignment.labour_count));
-                setAdditionalExpected(assignment.additional_expected == null ? '' : String(assignment.additional_expected));
-                setExpectedDate(assignment.expected_date ? assignment.expected_date.slice(0, 10) : '');
-              }}
-              className="p-1.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300"
-            >
-              <X className="w-3.5 h-3.5" />
+            <button onClick={() => setEditing(false)} className="text-gray-500 hover:text-gray-700">
+              <X className="w-4 h-4" />
             </button>
           </div>
         </td>
@@ -361,242 +255,202 @@ function AssignmentRow({
   }
 
   return (
-    <tr className="hover:bg-gray-100">
-      <td className="py-2 px-2 text-sm text-gray-800">{assignment.package_name}</td>
-      <td className="py-2 px-2 text-sm text-gray-800">{assignment.type_of_work}</td>
-      <td className="py-2 px-2 text-sm text-gray-800 font-mono">{assignment.labour_count}</td>
-      <td className="py-2 px-2 text-sm text-gray-800 font-mono">
-        {assignment.additional_expected ?? '—'}
-      </td>
-      <td className="py-2 px-2 text-sm text-gray-800">
-        {assignment.expected_date ? assignment.expected_date.slice(0, 10) : '—'}
-      </td>
-      <td className="py-2 px-2">
-        <div className="flex gap-1">
-          <button
-            onClick={() => setEditing(true)}
-            className="p-1.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-red-50"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+    <tr className="hover:bg-gray-50 border-b border-gray-100">
+      <td className="px-3 py-2 text-sm font-medium text-gray-700">{entry.contractor_name}</td>
+      <td className="px-3 py-2 text-sm text-gray-600">{entry.package_name}</td>
+      <td className="px-3 py-2 text-sm text-gray-600">{entry.type_of_work}</td>
+      <td className="px-3 py-2 text-sm text-gray-800">{entry.available_count}</td>
+      <td className="px-3 py-2 text-sm text-gray-600">{entry.additional_expected ?? '—'}</td>
+      <td className="px-3 py-2 text-sm text-gray-600">{entry.expected_date ?? '—'}</td>
+      <td className="px-3 py-2">
+        {isToday && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setEditing(true)}
+              className="text-blue-500 hover:text-blue-700"
+              title="Edit"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => { if (window.confirm('Delete this entry?')) deleteMut.mutate(); }}
+              disabled={deleteMut.isPending}
+              className="text-red-400 hover:text-red-600 disabled:opacity-50"
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </td>
     </tr>
   );
 }
 
-function ContractorRow({
-  contractor,
-  packages,
-  expanded,
-  onToggle,
-}: {
-  contractor: Contractor;
-  packages: Package[];
-  expanded: boolean;
-  onToggle: () => void;
-}) {
+// ── Contractor Master ─────────────────────────────────────────────────────────
+
+function ContractorRow({ contractor }: { contractor: Contractor }) {
+  const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(contractor.name);
-  const [contact, setContact] = useState(contractor.contact || '');
-  const [mobilizedBy, setMobilizedBy] = useState(contractor.mobilized_by || '');
-  const queryClient = useQueryClient();
+  const [contact, setContact] = useState(contractor.contact ?? '');
+  const [mobilizedBy, setMobilizedBy] = useState(contractor.mobilized_by ?? '');
 
-  const updateMutation = useMutation({
+  const updateMut = useMutation({
     mutationFn: (data: Record<string, any>) =>
       usersApi.updateContractor(contractor.contractor_id, data),
     onSuccess: () => {
-      toast.success('Contractor updated');
+      qc.invalidateQueries({ queryKey: ['contractors'] });
       setEditing(false);
-      queryClient.invalidateQueries({ queryKey: ['contractors'] });
     },
-    onError: (err: any) => toast.error(err.response?.data?.error || 'Update failed'),
+    onError: () => toast.error('Failed to update contractor'),
   });
-
-  const cancel = () => {
-    setEditing(false);
-    setName(contractor.name);
-    setContact(contractor.contact || '');
-    setMobilizedBy(contractor.mobilized_by || '');
-  };
-
-  const assignmentCount = contractor.assignments?.length || 0;
-  const totalLabour = contractor.assignments?.reduce((sum, a) => sum + a.labour_count, 0) || 0;
 
   if (editing) {
     return (
-      <>
-        <tr className="bg-blue-50">
-          <td className="px-4 py-2 w-8" />
-          <td className="px-4 py-2">
-            <input
-              className="input py-1 text-sm"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
-          </td>
-          <td className="px-4 py-2">
-            <input
-              className="input py-1 text-sm"
-              placeholder="+91XXXXXXXXXX"
-              value={contact}
-              onChange={(e) => setContact(e.target.value)}
-            />
-          </td>
-          <td className="px-4 py-2">
-            <input
-              className="input py-1 text-sm"
-              placeholder="Mobilized by (optional)"
-              value={mobilizedBy}
-              onChange={(e) => setMobilizedBy(e.target.value)}
-            />
-          </td>
-          <td className="px-4 py-2 text-sm text-gray-400">—</td>
-          <td className="px-4 py-2 text-sm text-gray-400">—</td>
-          <td className="px-4 py-2">
-            <div className="flex gap-2">
-              <button
-                onClick={() => updateMutation.mutate({ name, contact: contact || null, mobilized_by: mobilizedBy || null })}
-                disabled={!name || updateMutation.isPending}
-                className="p-1.5 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-              >
-                <Check className="w-3.5 h-3.5" />
-              </button>
-              <button onClick={cancel} className="p-1.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </td>
-        </tr>
-      </>
+      <tr className="bg-blue-50">
+        <td className="px-4 py-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="border rounded px-2 py-1 text-sm w-full"
+            placeholder="Name"
+          />
+        </td>
+        <td className="px-4 py-2">
+          <input
+            value={contact}
+            onChange={(e) => setContact(e.target.value)}
+            className="border rounded px-2 py-1 text-sm w-full font-mono"
+            placeholder="+91..."
+          />
+        </td>
+        <td className="px-4 py-2">
+          <input
+            value={mobilizedBy}
+            onChange={(e) => setMobilizedBy(e.target.value)}
+            className="border rounded px-2 py-1 text-sm w-full"
+            placeholder="Mobilized by"
+          />
+        </td>
+        <td className="px-4 py-2">
+          <span
+            className={`text-xs px-2 py-1 rounded-full ${
+              contractor.active_flag ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+            }`}
+          >
+            {contractor.active_flag ? 'Active' : 'Inactive'}
+          </span>
+        </td>
+        <td className="px-4 py-2">
+          <div className="flex gap-2">
+            <button
+              onClick={() =>
+                updateMut.mutate({ name, contact: contact || null, mobilized_by: mobilizedBy || null })
+              }
+              disabled={updateMut.isPending || !name.trim()}
+              className="text-green-600 hover:text-green-800 disabled:opacity-50"
+            >
+              <Check className="w-4 h-4" />
+            </button>
+            <button onClick={() => setEditing(false)} className="text-gray-500 hover:text-gray-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </td>
+      </tr>
     );
   }
 
   return (
-    <>
-      <tr className={`hover:bg-gray-50 transition-colors ${!contractor.active_flag ? 'opacity-60' : ''}`}>
-        <td className="px-2 py-3 w-8">
-          <button
-            onClick={onToggle}
-            className="p-1 rounded text-gray-400 hover:text-gray-700 hover:bg-gray-100"
-            title={expanded ? 'Collapse' : 'Expand'}
-          >
-            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          </button>
-        </td>
-        <td className="px-4 py-3 text-sm font-medium text-gray-900">{contractor.name}</td>
-        <td className="px-4 py-3 text-sm text-gray-500 font-mono">{contractor.contact || '—'}</td>
-        <td className="px-4 py-3 text-sm text-gray-600">{contractor.mobilized_by || '—'}</td>
-        <td className="px-4 py-3 text-sm text-gray-600">
-          {assignmentCount === 0 ? (
-            <span className="text-gray-400">—</span>
-          ) : (
-            <span>{assignmentCount} row{assignmentCount === 1 ? '' : 's'} · {totalLabour} labour</span>
-          )}
-        </td>
-        <td className="px-4 py-3">
-          <button
-            onClick={() => updateMutation.mutate({ active_flag: !contractor.active_flag })}
-            disabled={updateMutation.isPending}
-            className={`text-xs px-2 py-0.5 rounded-full font-medium cursor-pointer border transition-colors ${
-              contractor.active_flag
-                ? 'bg-green-100 text-green-800 border-green-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
-                : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
-            }`}
-            title={contractor.active_flag ? 'Click to deactivate' : 'Click to activate'}
-          >
-            {contractor.active_flag ? 'Active' : 'Inactive'}
-          </button>
-        </td>
-        <td className="px-4 py-3">
-          <button
-            onClick={() => setEditing(true)}
-            className="p-1.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-        </td>
-      </tr>
-      {expanded && (
-        <tr>
-          <td colSpan={7} className="p-0">
-            <AssignmentsEditor contractor={contractor} packages={packages} />
-          </td>
-        </tr>
-      )}
-    </>
+    <tr className="hover:bg-gray-50 border-b border-gray-100">
+      <td className="px-4 py-2 text-sm font-medium text-gray-700">{contractor.name}</td>
+      <td className="px-4 py-2 text-sm font-mono text-gray-500">{contractor.contact ?? '—'}</td>
+      <td className="px-4 py-2 text-sm text-gray-500">{contractor.mobilized_by ?? '—'}</td>
+      <td className="px-4 py-2">
+        <button
+          onClick={() => updateMut.mutate({ active_flag: !contractor.active_flag })}
+          disabled={updateMut.isPending}
+          className={`text-xs px-2 py-1 rounded-full ${
+            contractor.active_flag
+              ? 'bg-green-100 text-green-700 hover:bg-green-200'
+              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+          }`}
+        >
+          {contractor.active_flag ? 'Active' : 'Inactive'}
+        </button>
+      </td>
+      <td className="px-4 py-2">
+        <button
+          onClick={() => setEditing(true)}
+          className="text-blue-500 hover:text-blue-700"
+          title="Edit"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+      </td>
+    </tr>
   );
 }
 
 function AddContractorRow({ onDone }: { onDone: () => void }) {
+  const qc = useQueryClient();
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [mobilizedBy, setMobilizedBy] = useState('');
-  const queryClient = useQueryClient();
 
-  const createMutation = useMutation({
+  const mut = useMutation({
     mutationFn: () =>
-      usersApi.createContractor({
-        name,
-        contact: contact || null,
-        mobilized_by: mobilizedBy || null,
-      }),
+      usersApi.createContractor({ name, contact: contact || null, mobilized_by: mobilizedBy || null }),
     onSuccess: () => {
-      toast.success('Contractor added');
-      queryClient.invalidateQueries({ queryKey: ['contractors'] });
+      qc.invalidateQueries({ queryKey: ['contractors'] });
       onDone();
     },
-    onError: (err: any) => toast.error(err.response?.data?.error || 'Failed to add'),
+    onError: () => toast.error('Failed to add contractor'),
   });
 
   return (
     <tr className="bg-green-50">
-      <td className="px-4 py-2 w-8" />
       <td className="px-4 py-2">
         <input
-          className="input py-1 text-sm"
-          placeholder="Contractor name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          className="border rounded px-2 py-1 text-sm w-full"
+          placeholder="Name *"
           autoFocus
         />
       </td>
       <td className="px-4 py-2">
         <input
-          className="input py-1 text-sm"
-          placeholder="+91XXXXXXXXXX (optional)"
           value={contact}
           onChange={(e) => setContact(e.target.value)}
+          className="border rounded px-2 py-1 text-sm w-full font-mono"
+          placeholder="+91..."
         />
       </td>
       <td className="px-4 py-2">
         <input
-          className="input py-1 text-sm"
-          placeholder="Mobilized by (optional)"
           value={mobilizedBy}
           onChange={(e) => setMobilizedBy(e.target.value)}
+          className="border rounded px-2 py-1 text-sm w-full"
+          placeholder="Mobilized by"
         />
       </td>
-      <td className="px-4 py-2 text-sm text-gray-400">—</td>
-      <td className="px-4 py-2 text-sm text-gray-400">—</td>
+      <td className="px-4 py-2" />
       <td className="px-4 py-2">
         <div className="flex gap-2">
           <button
-            onClick={() => createMutation.mutate()}
-            disabled={!name || createMutation.isPending}
-            className="p-1.5 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+            onClick={() => {
+              if (!name.trim()) { toast.error('Name is required'); return; }
+              mut.mutate();
+            }}
+            disabled={mut.isPending}
+            className="text-green-600 hover:text-green-800 disabled:opacity-50"
           >
-            <Check className="w-3.5 h-3.5" />
+            <Check className="w-4 h-4" />
           </button>
-          <button onClick={onDone} className="p-1.5 rounded bg-gray-200 text-gray-600 hover:bg-gray-300">
-            <X className="w-3.5 h-3.5" />
+          <button onClick={onDone} className="text-gray-500 hover:text-gray-700">
+            <X className="w-4 h-4" />
           </button>
         </div>
       </td>
@@ -604,156 +458,166 @@ function AddContractorRow({ onDone }: { onDone: () => void }) {
   );
 }
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function ContractorsPage() {
-  const [adding, setAdding] = useState(false);
-  const [search, setSearch] = useState('');
-  const [filterMobilizedBy, setFilterMobilizedBy] = useState('');
-  const [filterPackage, setFilterPackage] = useState('');
-  const [filterTypeOfWork, setFilterTypeOfWork] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const today = new Date().toISOString().slice(0, 10);
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [addingLog, setAddingLog] = useState(false);
+  const [addingContractor, setAddingContractor] = useState(false);
+  const [contractorSearch, setContractorSearch] = useState('');
 
-  const { data: contractors = [], isLoading } = useQuery({
+  const { data: dailyLog = [], isLoading: logLoading } = useQuery({
+    queryKey: ['daily-log', selectedDate],
+    queryFn: () => usersApi.getDailyLog(selectedDate),
+  });
+
+  const { data: contractors = [], isLoading: contractorsLoading } = useQuery({
     queryKey: ['contractors'],
-    queryFn: () => usersApi.getContractors('', true, 'assignments'),
+    queryFn: () => usersApi.getContractors('', true),
   });
 
-  const { data: packages = [] } = useQuery<Package[]>({
+  const { data: packages = [] } = useQuery({
     queryKey: ['packages'],
-    queryFn: packagesApi.list,
+    queryFn: () => packagesApi.list(),
   });
 
-  // Derive filter options from loaded data
-  const mobilizedByOptions = Array.from(
-    new Set(contractors.map((c: Contractor) => c.mobilized_by).filter(Boolean))
-  ).sort() as string[];
+  const isToday = selectedDate === today;
 
-  const hasFilters = filterMobilizedBy || filterPackage || filterTypeOfWork;
-
-  const filtered = contractors.filter((c: Contractor) => {
-    if (!c.name.toLowerCase().includes(search.toLowerCase())) return false;
-    if (filterMobilizedBy && (c.mobilized_by || '') !== filterMobilizedBy) return false;
-    if (filterPackage && !c.assignments?.some((a) => a.package_name === filterPackage)) return false;
-    if (filterTypeOfWork && !c.assignments?.some((a) => a.type_of_work === filterTypeOfWork)) return false;
-    return true;
-  });
-
-  const toggle = (id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const filteredContractors = (contractors as Contractor[]).filter((c) =>
+    c.name.toLowerCase().includes(contractorSearch.toLowerCase())
+  );
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Contractors</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{contractors.length} total</p>
-        </div>
-        <button
-          onClick={() => setAdding(true)}
-          className="btn-primary flex items-center gap-1.5 text-sm"
-        >
-          <Plus className="w-4 h-4" /> Add Contractor
-        </button>
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <input
-          className="input w-48 text-sm"
-          placeholder="Search by name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <div>
-          <label className="label">Mobilized By</label>
-          <select
-            className="input text-sm"
-            value={filterMobilizedBy}
-            onChange={(e) => setFilterMobilizedBy(e.target.value)}
-          >
-            <option value="">All</option>
-            {mobilizedByOptions.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label">Package</label>
-          <select
-            className="input text-sm"
-            value={filterPackage}
-            onChange={(e) => setFilterPackage(e.target.value)}
-          >
-            <option value="">All Packages</option>
-            {packages.map((p: Package) => (
-              <option key={p.package_id} value={p.package_name}>{p.package_name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label">Type of Work</label>
-          <select
-            className="input text-sm"
-            value={filterTypeOfWork}
-            onChange={(e) => setFilterTypeOfWork(e.target.value)}
-          >
-            <option value="">All Types</option>
-            {TYPE_OF_WORK.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </div>
-        {hasFilters && (
-          <button
-            onClick={() => { setFilterMobilizedBy(''); setFilterPackage(''); setFilterTypeOfWork(''); }}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 border border-gray-200 rounded-lg px-3 py-2 hover:border-red-200 transition-colors"
-          >
-            <X className="w-3.5 h-3.5" /> Clear
-          </button>
-        )}
-      </div>
-
-      <div className="card overflow-hidden">
-        {isLoading ? (
-          <div className="p-8 text-center text-gray-400">Loading...</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="w-8" />
-                  {['Name', 'Contact', 'Mobilized By', 'Assignments', 'Status', 'Actions'].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {adding && <AddContractorRow onDone={() => setAdding(false)} />}
-                {filtered.map((c: Contractor) => (
-                  <ContractorRow
-                    key={c.contractor_id}
-                    contractor={c}
-                    packages={packages}
-                    expanded={expanded.has(c.contractor_id)}
-                    onToggle={() => toggle(c.contractor_id)}
-                  />
-                ))}
-                {filtered.length === 0 && !adding && (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                      {search ? 'No contractors match your search.' : 'No contractors yet.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+    <div className="p-6 space-y-10">
+      {/* ── Daily Availability Log ── */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <h2 className="text-lg font-semibold text-gray-800">Daily Availability Log</h2>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => { setSelectedDate(e.target.value); setAddingLog(false); }}
+              className="border rounded px-2 py-1 text-sm"
+            />
+            {!isToday && (
+              <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200">
+                Viewing past date — read only
+              </span>
+            )}
           </div>
-        )}
-      </div>
+          {isToday && !addingLog && (
+            <button
+              onClick={() => setAddingLog(true)}
+              className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
+            >
+              + Add Row
+            </button>
+          )}
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+          <table className="min-w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contractor</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Package</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type of Work</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Available Count</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Additional Expected</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Arrival Date</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {addingLog && (
+                <AddDailyLogRow
+                  contractors={contractors as Contractor[]}
+                  packages={packages as Package[]}
+                  onDone={() => setAddingLog(false)}
+                />
+              )}
+              {logLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-gray-400 text-sm">Loading...</td>
+                </tr>
+              ) : (dailyLog as DailyLogEntry[]).length === 0 && !addingLog ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-gray-400 text-sm">
+                    No entries for this date.
+                  </td>
+                </tr>
+              ) : (
+                (dailyLog as DailyLogEntry[]).map((entry) => (
+                  <DailyLogRow key={entry.log_id} entry={entry} isToday={isToday} />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* ── Contractor Master ── */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <h2 className="text-lg font-semibold text-gray-800">
+              Contractor Master
+              <span className="ml-2 text-sm font-normal text-gray-400">
+                ({(contractors as Contractor[]).length})
+              </span>
+            </h2>
+            <input
+              type="text"
+              value={contractorSearch}
+              onChange={(e) => setContractorSearch(e.target.value)}
+              placeholder="Search by name..."
+              className="border rounded px-3 py-1.5 text-sm w-64"
+            />
+          </div>
+          {!addingContractor && (
+            <button
+              onClick={() => setAddingContractor(true)}
+              className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
+            >
+              + Add Contractor
+            </button>
+          )}
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+          <table className="min-w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobilized By</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white">
+              {addingContractor && (
+                <AddContractorRow onDone={() => setAddingContractor(false)} />
+              )}
+              {contractorsLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-400 text-sm">Loading...</td>
+                </tr>
+              ) : filteredContractors.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-400 text-sm">No contractors found.</td>
+                </tr>
+              ) : (
+                filteredContractors.map((c) => (
+                  <ContractorRow key={c.contractor_id} contractor={c} />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

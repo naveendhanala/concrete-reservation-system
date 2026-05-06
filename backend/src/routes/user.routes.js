@@ -45,37 +45,16 @@ router.get('/engineers', asyncHandler(async (req, res) => {
 
 // Get contractors with optional search
 // Pass ?all=true to include inactive contractors (used by Contractors management page)
-// Pass ?include=assignments to embed each contractor's package/type_of_work/labour_count rows
 router.get('/contractors', asyncHandler(async (req, res) => {
-  const { search, all, include } = req.query;
+  const { search, all } = req.query;
   const { rows } = await query(
-    `SELECT * FROM contractors
-     WHERE ($1::boolean IS TRUE OR active_flag = TRUE)
-       AND ($2::text IS NULL OR name ILIKE $2)
+    `SELECT contractor_id, name, contact, mobilized_by, active_flag, created_at
+     FROM contractors
+     WHERE ($1::boolean OR active_flag = TRUE)
+       AND ($2::text IS NULL OR name ILIKE '%' || $2 || '%')
      ORDER BY name`,
-    [all === 'true' || null, search ? `%${search}%` : null]
+    [all === 'true', search || null]
   );
-
-  if (include === 'assignments' && rows.length) {
-    const ids = rows.map((r) => r.contractor_id);
-    const { rows: assignments } = await query(
-      `SELECT ca.assignment_id, ca.contractor_id, ca.package_id, p.package_name,
-              ca.type_of_work, ca.labour_count, ca.additional_expected, ca.expected_date,
-              ca.active_flag
-         FROM contractor_assignments ca
-         JOIN packages p ON p.package_id = ca.package_id
-        WHERE ca.contractor_id = ANY($1::uuid[])
-        ORDER BY p.package_name, ca.type_of_work`,
-      [ids]
-    );
-    const byContractor = new Map();
-    for (const a of assignments) {
-      if (!byContractor.has(a.contractor_id)) byContractor.set(a.contractor_id, []);
-      byContractor.get(a.contractor_id).push(a);
-    }
-    for (const c of rows) c.assignments = byContractor.get(c.contractor_id) || [];
-  }
-
   res.json(rows);
 }));
 
@@ -169,21 +148,6 @@ router.delete('/contractors/daily-log/:logId', requireRole('Admin', 'LabourMob')
   );
   if (rows.length === 0) throw new AppError('Entry not found or cannot delete past entries', 404);
   res.status(204).end();
-}));
-
-// List assignments for a single contractor
-router.get('/contractors/:id/assignments', asyncHandler(async (req, res) => {
-  const { rows } = await query(
-    `SELECT ca.assignment_id, ca.contractor_id, ca.package_id, p.package_name,
-            ca.type_of_work, ca.labour_count, ca.additional_expected, ca.expected_date,
-            ca.active_flag
-       FROM contractor_assignments ca
-       JOIN packages p ON p.package_id = ca.package_id
-      WHERE ca.contractor_id = $1
-      ORDER BY p.package_name, ca.type_of_work`,
-    [req.params.id]
-  );
-  res.json(rows);
 }));
 
 // ── Collection routes ──────────────────────────────────────────────────────
@@ -371,7 +335,7 @@ router.patch('/contractors/:id', requireRole('Admin', 'LabourMob'), asyncHandler
   res.json(rows[0]);
 }));
 
-// ── Contractor assignment mutations (Admin + LabourMob) ───────────────────
+// ── Helper function ──────────────────────────────────────────────────────────
 
 function parseNonNegativeInt(value, fieldName) {
   if (value === undefined || value === null || value === '') return null;
@@ -381,89 +345,6 @@ function parseNonNegativeInt(value, fieldName) {
   }
   return n;
 }
-
-router.post('/contractors/:id/assignments', requireRole('Admin', 'LabourMob'), asyncHandler(async (req, res) => {
-  const { package_id, type_of_work, labour_count, additional_expected, expected_date } = req.body;
-  if (!package_id || !type_of_work || labour_count === undefined || labour_count === null) {
-    throw new AppError('package_id, type_of_work and labour_count are required', 400);
-  }
-  const count = Number(labour_count);
-  if (!Number.isInteger(count) || count < 0) {
-    throw new AppError('labour_count must be a non-negative integer', 400);
-  }
-  const addlExpected = parseNonNegativeInt(additional_expected, 'additional_expected');
-  try {
-    const { rows } = await query(
-      `INSERT INTO contractor_assignments
-         (contractor_id, package_id, type_of_work, labour_count, additional_expected, expected_date)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING assignment_id, contractor_id, package_id, type_of_work, labour_count,
-                 additional_expected, expected_date, active_flag`,
-      [req.params.id, package_id, type_of_work, count, addlExpected, expected_date || null]
-    );
-    res.status(201).json(rows[0]);
-  } catch (err) {
-    if (err.code === '23505') {
-      throw new AppError('An assignment for this package and type of work already exists', 409);
-    }
-    if (err.code === '23503') {
-      throw new AppError('Invalid contractor_id or package_id', 400);
-    }
-    throw err;
-  }
-}));
-
-router.patch('/contractors/:id/assignments/:assignmentId', requireRole('Admin', 'LabourMob'), asyncHandler(async (req, res) => {
-  const { package_id, type_of_work, labour_count, additional_expected, expected_date, active_flag } = req.body;
-  if (labour_count !== undefined && labour_count !== null) {
-    const count = Number(labour_count);
-    if (!Number.isInteger(count) || count < 0) {
-      throw new AppError('labour_count must be a non-negative integer', 400);
-    }
-  }
-  let addlExpected;
-  if (additional_expected !== undefined) {
-    addlExpected = additional_expected === null || additional_expected === ''
-      ? null
-      : parseNonNegativeInt(additional_expected, 'additional_expected');
-  }
-  const { rows } = await query(
-    `UPDATE contractor_assignments
-        SET package_id           = COALESCE($1, package_id),
-            type_of_work         = COALESCE($2, type_of_work),
-            labour_count         = COALESCE($3, labour_count),
-            additional_expected  = CASE WHEN $4::boolean THEN $5 ELSE additional_expected END,
-            expected_date        = CASE WHEN $6::boolean THEN $7 ELSE expected_date END,
-            active_flag          = COALESCE($8, active_flag),
-            updated_at           = NOW()
-      WHERE assignment_id = $9 AND contractor_id = $10
-      RETURNING assignment_id, contractor_id, package_id, type_of_work, labour_count,
-                additional_expected, expected_date, active_flag`,
-    [
-      package_id || null,
-      type_of_work || null,
-      labour_count ?? null,
-      additional_expected !== undefined,
-      addlExpected ?? null,
-      expected_date !== undefined,
-      expected_date || null,
-      active_flag ?? null,
-      req.params.assignmentId,
-      req.params.id,
-    ]
-  );
-  if (!rows[0]) throw new AppError('Assignment not found', 404);
-  res.json(rows[0]);
-}));
-
-router.delete('/contractors/:id/assignments/:assignmentId', requireRole('Admin', 'LabourMob'), asyncHandler(async (req, res) => {
-  const { rowCount } = await query(
-    `DELETE FROM contractor_assignments WHERE assignment_id = $1 AND contractor_id = $2`,
-    [req.params.assignmentId, req.params.id]
-  );
-  if (!rowCount) throw new AppError('Assignment not found', 404);
-  res.status(204).send();
-}));
 
 // ── Engineer mutations ─────────────────────────────────────────────────────
 

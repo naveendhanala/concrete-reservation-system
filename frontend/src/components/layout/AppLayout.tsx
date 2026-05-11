@@ -12,7 +12,7 @@ import { notificationsApi } from '../../api/index';
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin'] },
   { to: '/reservations', icon: ClipboardList, label: 'Reservations', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin'] },
-  { to: '/delivery-logs', icon: Truck, label: 'Delivery Logs', roles: ['PMHead', 'PMManager'] },
+  { to: '/delivery-logs', icon: Truck, label: 'Delivery Logs', roles: ['PMHead', 'PMManager', 'QC-dept'] },
   { to: '/approvals', icon: CheckSquare, label: 'Approvals', roles: ['VP','ClusterHead','PMHead'] },
   { to: '/calendar', icon: Calendar, label: 'Capacity Calendar', roles: ['PMHead','PMManager','VP','Admin'] },
   { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['PM','VP','ClusterHead','PMHead','PMManager','Admin'] },
@@ -117,6 +117,7 @@ export default function AppLayout() {
     PMManager: 'bg-teal-100 text-teal-800',
     Admin: 'bg-red-100 text-red-800',
     LabourMob: 'bg-amber-100 text-amber-800',
+    'QC-dept': 'bg-cyan-100 text-cyan-800',
   };
 
   return (

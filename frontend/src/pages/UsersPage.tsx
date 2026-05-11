@@ -5,7 +5,7 @@ import { usersApi, packagesApi } from '../api/index';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, X, Check, Eye, EyeOff } from 'lucide-react';
 
-const ROLES = ['VP', 'ClusterHead', 'PM', 'Engineer', 'PMHead', 'PMManager', 'Admin', 'LabourMob'] as const;
+const ROLES = ['VP', 'ClusterHead', 'PM', 'Engineer', 'PMHead', 'PMManager', 'Admin', 'LabourMob', 'QC-dept'] as const;
 type Role = typeof ROLES[number];
 
 const roleColors: Record<string, string> = {
@@ -17,6 +17,7 @@ const roleColors: Record<string, string> = {
   PMManager: 'bg-teal-100 text-teal-800',
   Admin: 'bg-red-100 text-red-800',
   LabourMob: 'bg-amber-100 text-amber-800',
+  'QC-dept': 'bg-cyan-100 text-cyan-800',
 };
 
 // Roles that can be assigned packages

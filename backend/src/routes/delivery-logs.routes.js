@@ -5,6 +5,6 @@ const { listDeliveryLogs } = require('../controllers/delivery-logs.controller');
 
 const router = express.Router();
 
-router.get('/', requireRole('PMHead', 'PMManager'), listDeliveryLogs);
+router.get('/', requireRole('PMHead', 'PMManager', 'QC-dept'), listDeliveryLogs);
 
 module.exports = router;

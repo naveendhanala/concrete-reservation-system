@@ -70,6 +70,7 @@ function RoleRoute({ roles, children }: { roles: string[]; children: React.React
 function HomeRedirect() {
   const { user } = useAuth();
   if (user?.role === 'LabourMob') return <Navigate to="/daily-log" replace />;
+  if (user?.role === 'QC-dept') return <Navigate to="/delivery-logs" replace />;
   return <DashboardPage />;
 }
 
@@ -104,7 +105,7 @@ export default function App() {
             } />
             <Route path="machinery" element={<MachineryPage />} />
             <Route path="delivery-logs" element={
-              <RoleRoute roles={['PMHead', 'PMManager']}><DeliveryLogsPage /></RoleRoute>
+              <RoleRoute roles={['PMHead', 'PMManager', 'QC-dept']}><DeliveryLogsPage /></RoleRoute>
             } />
             <Route path="settings" element={
               <RoleRoute roles={['Admin']}><SettingsPage /></RoleRoute>

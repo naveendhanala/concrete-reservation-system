@@ -52,8 +52,8 @@ const pool = new Pool(
     ? {
         ...parsed,
         ssl: { rejectUnauthorized: false },
-        max: parseInt(process.env.DB_POOL_MAX || '2'),
-        idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '10000'),
+        max: parseInt(process.env.DB_POOL_MAX || '1'),
+        idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '3000'),
         connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '30000'),
         allowExitOnIdle: true,
       }

@@ -25,7 +25,22 @@ types.setTypeParser(1184, (val) => {
   );
 }); // TIMESTAMPTZ → "YYYY-MM-DD HH:MM:SS" in IST
 
-const dbUrl = process.env.DATABASE_URL || process.env.reservations_DATABASE_URL || null;
+// Strip sslmode and channel_binding from the URL — newer pg versions treat
+// sslmode=require as verify-full which breaks self-signed certs (e.g. DigitalOcean).
+// SSL is controlled exclusively via the ssl option below.
+function buildDbUrl(raw) {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw);
+    u.searchParams.delete('sslmode');
+    u.searchParams.delete('channel_binding');
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
+const dbUrl = buildDbUrl(process.env.DATABASE_URL || process.env.reservations_DATABASE_URL || null);
 
 const pool = new Pool(
   dbUrl

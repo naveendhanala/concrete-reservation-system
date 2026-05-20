@@ -25,31 +25,37 @@ types.setTypeParser(1184, (val) => {
   );
 }); // TIMESTAMPTZ → "YYYY-MM-DD HH:MM:SS" in IST
 
-// Strip sslmode and channel_binding from the URL — newer pg versions treat
-// sslmode=require as verify-full which breaks self-signed certs (e.g. DigitalOcean).
-// SSL is controlled exclusively via the ssl option below.
-function buildDbUrl(raw) {
+// Parse the database URL into explicit connection parameters to avoid pg's
+// URL-based SSL mode detection, which in newer versions treats sslmode=require
+// as verify-full and breaks self-signed certs (e.g. DigitalOcean, Neon).
+function parseDbUrl(raw) {
   if (!raw) return null;
   try {
     const u = new URL(raw);
-    u.searchParams.delete('sslmode');
-    u.searchParams.delete('channel_binding');
-    return u.toString();
+    return {
+      host: u.hostname,
+      port: parseInt(u.port) || 5432,
+      database: u.pathname.replace(/^\//, ''),
+      user: decodeURIComponent(u.username),
+      password: decodeURIComponent(u.password),
+    };
   } catch {
-    return raw;
+    return null;
   }
 }
 
-const dbUrl = buildDbUrl(process.env.DATABASE_URL || process.env.reservations_DATABASE_URL || null);
+const rawDbUrl = process.env.DATABASE_URL || process.env.reservations_DATABASE_URL || null;
+const parsed = parseDbUrl(rawDbUrl);
 
 const pool = new Pool(
-  dbUrl
+  parsed
     ? {
-        connectionString: dbUrl,
+        ...parsed,
         ssl: { rejectUnauthorized: false },
-        max: parseInt(process.env.DB_POOL_MAX || '10'),
-        idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '30000'),
+        max: parseInt(process.env.DB_POOL_MAX || '2'),
+        idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT || '10000'),
         connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONNECTION_TIMEOUT || '30000'),
+        allowExitOnIdle: true,
       }
     : /* local postgres */ {
         host: process.env.DB_HOST || 'localhost',

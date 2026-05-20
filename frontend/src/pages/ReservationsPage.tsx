@@ -91,7 +91,7 @@ export default function ReservationsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Reservation #', 'Package', 'Date/Time', 'Requested Qty', 'Actual Qty', 'Grade', 'Batching Plant', 'Status', 'Completed At'].map((h) => (
+                {['Reservation #', 'Package', 'Date/Time', 'Requested Qty', 'Actual Qty', 'Grade', 'Batching Plant', 'Status', 'Started At', 'Completed At'].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -116,6 +116,11 @@ export default function ReservationsPage() {
                   <td className="px-4 py-3 text-gray-600">{r.grade?.replace('_', ' ')}</td>
                   <td className="px-4 py-3 text-gray-600">{r.batching_plant || '—'}</td>
                   <td className="px-4 py-3"><StatusBadge status={r.status} /></td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {r.started_at
+                      ? new Date(r.started_at).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+                      : '—'}
+                  </td>
                   <td className="px-4 py-3 text-gray-600">
                     {r.completed_at
                       ? new Date(r.completed_at).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })

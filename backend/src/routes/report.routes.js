@@ -322,4 +322,58 @@ router.get('/labour-mobilization', requireRole('Admin', 'LabourMob'), asyncHandl
   });
 }));
 
+// Same-day trends — count and volume of SameDay-flagged reservations per day
+router.get('/same-day-trends', asyncHandler(async (req, res) => {
+  const { from, to } = req.query;
+  const packageId = await resolvePackageId(req);
+
+  const [{ rows }, { rows: summaryRows }] = await Promise.all([
+    // Daily breakdown
+    query(
+      `SELECT
+         ${POUR_DATE}                        AS date,
+         COUNT(*)                            AS count,
+         COALESCE(SUM(r.quantity_m3), 0)    AS volume_m3
+       FROM reservations r
+       WHERE r.priority_flag = 'SameDay'
+         AND r.status != 'Draft'
+         AND ($1::date IS NULL OR ${POUR_DATE} >= $1)
+         AND ($2::date IS NULL OR ${POUR_DATE} <= $2)
+         AND ($3::uuid IS NULL OR r.package_id = $3)
+       GROUP BY ${POUR_DATE}
+       ORDER BY ${POUR_DATE}`,
+      [from || null, to || null, packageId]
+    ),
+    // Summary KPIs (all reservations in range for % calculation)
+    query(
+      `SELECT
+         COUNT(*) FILTER (WHERE r.priority_flag = 'SameDay' AND r.status != 'Draft')          AS total_same_day,
+         COALESCE(
+           SUM(r.quantity_m3) FILTER (WHERE r.priority_flag = 'SameDay' AND r.status != 'Draft'),
+           0
+         )                                                                                      AS total_volume_m3,
+         COUNT(*) FILTER (WHERE r.status != 'Draft')                                           AS total_all
+       FROM reservations r
+       WHERE ($1::date IS NULL OR ${POUR_DATE} >= $1)
+         AND ($2::date IS NULL OR ${POUR_DATE} <= $2)
+         AND ($3::uuid IS NULL OR r.package_id = $3)`,
+      [from || null, to || null, packageId]
+    ),
+  ]);
+
+  const s = summaryRows[0];
+  const totalAll = parseInt(s.total_all) || 0;
+  const totalSameDay = parseInt(s.total_same_day) || 0;
+
+  res.json({
+    rows,
+    summary: {
+      total_same_day: totalSameDay,
+      total_volume_m3: parseFloat(s.total_volume_m3 || 0).toFixed(2),
+      total_all: totalAll,
+      same_day_pct: totalAll > 0 ? Math.round((totalSameDay / totalAll) * 100) : 0,
+    },
+  });
+}));
+
 module.exports = router;

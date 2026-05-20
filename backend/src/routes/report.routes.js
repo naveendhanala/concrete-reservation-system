@@ -30,9 +30,9 @@ router.get('/sla', asyncHandler(async (req, res) => {
        SELECT
          ${POUR_DATE} AS date,
          COUNT(*) AS total,
-         COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
+         COUNT(*) FILTER (WHERE r.status IN ('Completed','Auto-completed')) AS completed,
          COUNT(*) FILTER (WHERE r.status = 'Cancelled') AS cancelled,
-         COUNT(*) FILTER (WHERE r.status = 'Completed' AND r.completed_at <= r.requested_end) AS on_time,
+         COUNT(*) FILTER (WHERE r.status IN ('Completed','Auto-completed') AND r.completed_at <= r.requested_end) AS on_time,
          COALESCE(SUM(r.quantity_m3) FILTER (WHERE r.status NOT IN ('Cancelled', 'Rejected', 'Draft')), 0) AS total_requested_m3
        FROM reservations r
        WHERE ($1::date IS NULL OR ${POUR_DATE} >= $1)
@@ -104,7 +104,7 @@ router.get('/packages', asyncHandler(async (req, res) => {
      )
      SELECT pkg.package_name,
        COUNT(r.reservation_id) AS total,
-       COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
+       COUNT(*) FILTER (WHERE r.status IN ('Completed','Auto-completed')) AS completed,
        COUNT(*) FILTER (WHERE r.status = 'Cancelled') AS cancelled,
        COALESCE(SUM(r.quantity_m3) FILTER (WHERE r.status NOT IN ('Cancelled', 'Rejected', 'Draft')), 0) AS total_requested_m3,
        COALESCE(da.total_actual_m3, 0) AS total_actual_m3

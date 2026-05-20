@@ -64,7 +64,7 @@ exports.getCalendar = asyncHandler(async (req, res) => {
   const { rows: reservationCounts } = await query(
     `SELECT rsm.slot_id, COUNT(DISTINCT r.reservation_id) AS reservation_count,
             SUM(rsm.allocated_m3) AS total_allocated,
-            COALESCE(SUM(r.actual_quantity_m3) FILTER (WHERE r.status = 'Completed'), 0) AS total_actual
+            COALESCE(SUM(r.actual_quantity_m3) FILTER (WHERE r.status IN ('Completed','Auto-completed')), 0) AS total_actual
      FROM reservation_slot_mappings rsm
      JOIN reservations r ON rsm.reservation_id = r.reservation_id
      WHERE rsm.slot_id = ANY($1)

@@ -62,8 +62,8 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
 
-// Health check
-app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+// Health check — registered at both paths: /health (local) and /api/health (Vercel)
+app.get(['/health', '/api/health'], (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 // Maintenance mode — blocks all routes below, health check above stays accessible
 if (process.env.MAINTENANCE_MODE === 'true') {

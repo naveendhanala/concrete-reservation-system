@@ -9,7 +9,7 @@ export default function MaintenancePage() {
   async function checkIfBack() {
     setChecking(true);
     try {
-      const res = await fetch('/health');
+      const res = await fetch('/api/health');
       const data = await res.json();
       if (res.ok && data.status === 'ok') {
         window.location.href = '/';

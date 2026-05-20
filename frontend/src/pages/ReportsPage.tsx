@@ -298,10 +298,8 @@ export default function ReportsPage() {
     from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0],
   });
-  const [range, setRange] = useState({
-    from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
-    to: new Date().toISOString().split('T')[0],
-  });
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const [range, setRange] = useState({ from: yesterday, to: yesterday });
 
   const packageId = isPM ? user?.packageIds[0] : undefined;
   const apiParams = { ...range, ...(packageId ? { package_id: packageId } : {}) };

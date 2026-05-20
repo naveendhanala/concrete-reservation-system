@@ -65,6 +65,18 @@ if (process.env.NODE_ENV !== 'test') {
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
+// Maintenance mode — blocks all routes below, health check above stays accessible
+if (process.env.MAINTENANCE_MODE === 'true') {
+  app.use((req, res) => {
+    res.status(503).json({
+      error: 'System is under maintenance. We will be back shortly.',
+      maintenance: true,
+    });
+  });
+  module.exports = app;
+  return;
+}
+
 // Public routes
 app.use('/api/auth', authRoutes);
 app.use('/api/webhook/whatsapp', whatsappRoutes);

@@ -24,6 +24,7 @@ import DeliveryLogsPage from './pages/DeliveryLogsPage';
 import SettingsPage from './pages/SettingsPage';
 
 import AppLayout from './components/layout/AppLayout';
+import MaintenancePage from './pages/MaintenancePage';
 
 function AppWithPush({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -111,6 +112,7 @@ export default function App() {
               <RoleRoute roles={['Admin']}><SettingsPage /></RoleRoute>
             } />
           </Route>
+          <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
         </AppWithPush>

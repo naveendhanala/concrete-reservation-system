@@ -13,10 +13,17 @@ client.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle token refresh on 401
+// Handle token refresh on 401, maintenance on 503
 client.interceptors.response.use(
   (res) => res,
   async (error) => {
+    if (error.response?.status === 503 && error.response?.data?.maintenance) {
+      if (window.location.pathname !== '/maintenance') {
+        window.location.href = '/maintenance';
+      }
+      return Promise.reject(error);
+    }
+
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;

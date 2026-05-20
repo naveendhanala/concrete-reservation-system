@@ -151,18 +151,18 @@ export default function ReservationDetailPage() {
 
   const isPMOps = user?.role === 'PMHead' || user?.role === 'PMManager';
   const canAcknowledge = isPMOps && reservation.status === 'Submitted';
-  const canModify = user?.role === 'PM' && reservation.requester_id === user.userId && !['Completed', 'Cancelled', 'Rejected'].includes(reservation.status);
+  const canModify = user?.role === 'PM' && reservation.requester_id === user.userId && !['Completed', 'Auto-completed', 'Cancelled', 'Rejected'].includes(reservation.status);
   const canStart = user?.role === 'PM' && reservation.requester_id === user.userId && reservation.status === 'Acknowledged';
   const canAddDelivery = isPMOps && reservation.status === 'Started';
   const canComplete = user?.role === 'PM' && reservation.requester_id === user.userId && reservation.status === 'Started';
-  const canCancel = !['Completed', 'Cancelled', 'Rejected'].includes(reservation.status) && (
+  const canCancel = !['Completed', 'Auto-completed', 'Cancelled', 'Rejected'].includes(reservation.status) && (
     (user?.role === 'PM' && reservation.requester_id === user.userId) || isPMOps
   );
 
   const statusColors: Record<string, string> = {
     Submitted: 'text-blue-700 bg-blue-50', Acknowledged: 'text-green-700 bg-green-50',
     Started: 'text-orange-700 bg-orange-50', PendingApproval: 'text-yellow-700 bg-yellow-50',
-    Completed: 'text-emerald-700 bg-emerald-50', Rejected: 'text-red-700 bg-red-50',
+    Completed: 'text-emerald-700 bg-emerald-50', 'Auto-completed': 'text-teal-700 bg-teal-50', Rejected: 'text-red-700 bg-red-50',
     Cancelled: 'text-gray-600 bg-gray-100',
   };
 
@@ -321,8 +321,11 @@ export default function ReservationDetailPage() {
             {reservation.started_at && (
               <TimelineRow label="Started by PM" value={(reservation.started_at ?? '').slice(0, 16)} highlight="orange" />
             )}
-            {reservation.completed_at && (
+            {reservation.completed_at && reservation.status === 'Completed' && (
               <TimelineRow label="Completed" value={(reservation.completed_at ?? '').slice(0, 16)} highlight="emerald" />
+            )}
+            {reservation.completed_at && reservation.status === 'Auto-completed' && (
+              <TimelineRow label="Auto-completed (system)" value={(reservation.completed_at ?? '').slice(0, 16)} highlight="emerald" />
             )}
             {(reservation.modifications ?? []).map((m: any, i: number) => {
               let parsed: { reason?: string; changes?: { field: string; from: string; to: string }[] } = {};

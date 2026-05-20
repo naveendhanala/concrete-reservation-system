@@ -344,7 +344,7 @@ exports.modify = asyncHandler(async (req, res) => {
   const { rows: existing } = await query('SELECT * FROM reservations WHERE reservation_id = $1', [id]);
   if (!existing[0]) throw new AppError('Reservation not found', 404);
   if (existing[0].requester_id !== user.user_id) throw new AppError('Not authorized', 403);
-  if (['Completed', 'Cancelled', 'Rejected'].includes(existing[0].status)) {
+  if (['Completed', 'Auto-completed', 'Cancelled', 'Rejected'].includes(existing[0].status)) {
     throw new AppError('Cannot modify a completed, cancelled, or rejected reservation', 400);
   }
   // Started reservations and PMs (who own the reservation) skip the cutoff check
@@ -419,7 +419,7 @@ exports.cancel = asyncHandler(async (req, res) => {
   }
   if (!canCancel) throw new AppError('Not authorized to cancel', 403);
 
-  if (['Completed', 'Cancelled'].includes(existing[0].status)) {
+  if (['Completed', 'Auto-completed', 'Cancelled'].includes(existing[0].status)) {
     throw new AppError('Already completed or cancelled', 400);
   }
 

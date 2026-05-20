@@ -11,7 +11,7 @@ function StatusBadge({ status }: { status: string }) {
     Submitted: 'badge-submitted', Acknowledged: 'badge-acknowledged',
     Started: 'bg-orange-100 text-orange-700',
     PendingApproval: 'badge-pending', Rejected: 'badge-rejected',
-    Cancelled: 'badge-cancelled', Completed: 'badge-completed',
+    Cancelled: 'badge-cancelled', Completed: 'badge-completed', 'Auto-completed': 'bg-teal-100 text-teal-700',
     Draft: 'bg-gray-100 text-gray-600',
   };
   return <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cls[status] || 'bg-gray-100 text-gray-600'}`}>{status}</span>;
@@ -60,7 +60,7 @@ export default function ReservationsPage() {
         <select className="input" value={filters.status}
           onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value, page: 1 }))}>
           <option value="">All Status</option>
-          {['Submitted', 'PendingApproval', 'Acknowledged', 'Started', 'Completed', 'Cancelled', 'Rejected'].map((s) => (
+          {['Submitted', 'PendingApproval', 'Acknowledged', 'Started', 'Completed', 'Auto-completed', 'Cancelled', 'Rejected'].map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>

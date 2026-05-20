@@ -43,7 +43,7 @@ exports.pmDashboard = asyncHandler(async (req, res) => {
       submitted: statusMap.Submitted || 0,
       acknowledged: statusMap.Acknowledged || 0,
       pending_approval: statusMap.PendingApproval || 0,
-      completed: statusMap.Completed || 0,
+      completed: (statusMap.Completed || 0) + (statusMap['Auto-completed'] || 0),
       cancelled: statusMap.Cancelled || 0,
     },
     pendingApprovals: pendingApprovals.rows,
@@ -94,8 +94,8 @@ exports.pmHeadDashboard = asyncHandler(async (req, res) => {
     // Today's reservation completion split
     query(
       `SELECT
-         COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
-         COUNT(*) FILTER (WHERE r.status NOT IN ('Completed','Cancelled','Rejected')) AS pending
+         COUNT(*) FILTER (WHERE r.status IN ('Completed','Auto-completed')) AS completed,
+         COUNT(*) FILTER (WHERE r.status NOT IN ('Completed','Auto-completed','Cancelled','Rejected')) AS pending
        FROM reservations r
        WHERE DATE(r.requested_start) = $1`,
       [today]
@@ -125,7 +125,7 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
          AVG(EXTRACT(EPOCH FROM (acknowledged_at - created_at))/3600) AS avg_ack_hours,
          COALESCE(SUM(actual_quantity_m3), 0) AS total_actual_m3
        FROM reservations
-       WHERE status = 'Completed'
+       WHERE status IN ('Completed','Auto-completed')
          AND DATE(requested_start) >= $1`,
       [thirtyDaysAgo]
     ),
@@ -133,7 +133,7 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
     query(
       `SELECT pkg.package_name,
               COUNT(r.reservation_id) AS total,
-              COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
+              COUNT(*) FILTER (WHERE r.status IN ('Completed','Auto-completed')) AS completed,
               COUNT(*) FILTER (WHERE r.status = 'Cancelled') AS cancelled,
               SUM(r.quantity_m3) AS total_m3
        FROM packages pkg
@@ -276,8 +276,8 @@ exports.pmManagerDashboard = asyncHandler(async (req, res) => {
     // Today's completion split for this plant
     query(
       `SELECT
-         COUNT(*) FILTER (WHERE r.status = 'Completed') AS completed,
-         COUNT(*) FILTER (WHERE r.status NOT IN ('Completed','Cancelled','Rejected')) AS pending
+         COUNT(*) FILTER (WHERE r.status IN ('Completed','Auto-completed')) AS completed,
+         COUNT(*) FILTER (WHERE r.status NOT IN ('Completed','Auto-completed','Cancelled','Rejected')) AS pending
        FROM reservations r
        WHERE DATE(r.requested_start) = $1 AND r.batching_plant = ANY($2)`,
       [today, plantNames]

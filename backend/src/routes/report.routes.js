@@ -327,7 +327,7 @@ router.get('/same-day-trends', asyncHandler(async (req, res) => {
   const { from, to } = req.query;
   const packageId = await resolvePackageId(req);
 
-  const [{ rows }, { rows: summaryRows }] = await Promise.all([
+  const [{ rows }, { rows: summaryRows }, { rows: packageRows }] = await Promise.all([
     // Daily breakdown
     query(
       `SELECT
@@ -359,6 +359,24 @@ router.get('/same-day-trends', asyncHandler(async (req, res) => {
          AND ($3::uuid IS NULL OR r.package_id = $3)`,
       [from || null, to || null, packageId]
     ),
+    // Package-level breakdown
+    query(
+      `SELECT
+         p.package_name,
+         COUNT(*) FILTER (WHERE r.priority_flag = 'SameDay')           AS same_day_count,
+         COALESCE(SUM(r.quantity_m3) FILTER (WHERE r.priority_flag = 'SameDay'), 0) AS same_day_volume_m3,
+         COUNT(*)                                                        AS total_count
+       FROM reservations r
+       JOIN packages p ON r.package_id = p.package_id
+       WHERE r.status != 'Draft'
+         AND ($1::date IS NULL OR ${POUR_DATE} >= $1)
+         AND ($2::date IS NULL OR ${POUR_DATE} <= $2)
+         AND ($3::uuid IS NULL OR r.package_id = $3)
+       GROUP BY p.package_id, p.package_name
+       HAVING COUNT(*) FILTER (WHERE r.priority_flag = 'SameDay') > 0
+       ORDER BY same_day_count DESC`,
+      [from || null, to || null, packageId]
+    ),
   ]);
 
   const s = summaryRows[0];
@@ -373,6 +391,14 @@ router.get('/same-day-trends', asyncHandler(async (req, res) => {
       total_all: totalAll,
       same_day_pct: totalAll > 0 ? Math.round((totalSameDay / totalAll) * 100) : 0,
     },
+    by_package: packageRows.map((r) => ({
+      package_name: r.package_name,
+      same_day_count: parseInt(r.same_day_count),
+      same_day_volume_m3: parseFloat(r.same_day_volume_m3).toFixed(2),
+      same_day_pct: parseInt(r.total_count) > 0
+        ? Math.round((parseInt(r.same_day_count) / parseInt(r.total_count)) * 100)
+        : 0,
+    })),
   });
 }));
 

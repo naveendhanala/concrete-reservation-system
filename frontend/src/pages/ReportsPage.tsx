@@ -109,6 +109,7 @@ function SameDayTrendsTab() {
   });
 
   const rows: { date: string; count: string; volume_m3: string }[] = data?.rows ?? [];
+  const byPackage: { package_name: string; same_day_count: number; same_day_volume_m3: string; same_day_pct: number }[] = data?.by_package ?? [];
   const summary = data?.summary ?? {
     total_same_day: 0,
     total_volume_m3: '0.00',
@@ -211,7 +212,7 @@ function SameDayTrendsTab() {
           </div>
 
           {/* Chart 2 — Daily volume */}
-          <div className="card p-4">
+          <div className="card p-4 mb-6">
             <p className="text-sm font-semibold text-gray-800 mb-4">
               Same-Day Requests — Daily Volume (m³)
             </p>
@@ -231,6 +232,47 @@ function SameDayTrendsTab() {
                 </BarChart>
               </ResponsiveContainer>
             )}
+          </div>
+
+          {/* Package-wise summary table */}
+          <div className="card overflow-hidden overflow-x-auto">
+            <div className="p-4 border-b border-gray-100 font-semibold text-sm">
+              Package-wise Same-Day Summary
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  {['Package', 'Same-Day Requests', 'Requested Qty (m³)', 'Same-Day %'].map((h) => (
+                    <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {byPackage.map((row) => (
+                  <tr key={row.package_name} className="hover:bg-gray-50">
+                    <td className="px-4 py-2.5 font-medium">{row.package_name}</td>
+                    <td className="px-4 py-2.5">{row.same_day_count}</td>
+                    <td className="px-4 py-2.5">{row.same_day_volume_m3}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        row.same_day_pct >= 30 ? 'bg-red-100 text-red-700' :
+                        row.same_day_pct >= 15 ? 'bg-amber-100 text-amber-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {row.same_day_pct}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {byPackage.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                      No same-day requests in this period
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </>
       )}

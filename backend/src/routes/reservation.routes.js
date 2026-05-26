@@ -26,6 +26,7 @@ router.post('/',
     body('pouring_type').isIn(['BoomPlacer', 'ConcretePump', 'Chute', 'Manual']),
     body('engineer_user_id').optional({ nullable: true }).isUUID(),
     body('contractor_id').isUUID(),
+    body('same_day_reason').optional({ nullable: true }).isString(),
   ],
   ctrl.create
 );

@@ -205,6 +205,8 @@ export const reportsApi = {
     client.get('/reports/labour-mobilization', { params: date ? { date } : {} }).then((r) => r.data),
   sameDayTrends: (params: Record<string, any>) =>
     client.get('/reports/same-day-trends', { params }).then((r) => r.data),
+  sameDayRequests: (params: Record<string, any>) =>
+    client.get('/reports/same-day-requests', { params }).then((r) => r.data),
 };
 
 // src/api/delivery-logs.api.ts

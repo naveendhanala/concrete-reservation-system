@@ -142,7 +142,7 @@ exports.create = asyncHandler(async (req, res) => {
   const {
     slotId, quantity_m3, grade, structure, chainage,
     nature_of_work, type_of_work, pouring_type, engineer_user_id, contractor_id,
-    rfi_id, batching_plant,
+    rfi_id, batching_plant, same_day_reason,
   } = req.body;
 
   // Get user's package
@@ -162,6 +162,10 @@ exports.create = asyncHandler(async (req, res) => {
   // Validate slot has enough capacity for the full requested quantity
   const allocation = await capacityService.computeSlotAllocation(slotId, quantity_m3);
   const isSameDay = capacityService.isSameDay(slot.start_time);
+
+  if (isSameDay && (!same_day_reason || !same_day_reason.trim())) {
+    throw new AppError('A reason is required for same-day requests', 400);
+  }
 
   // Fetch freebie limit once outside the transaction
   const { rows: freebieConfig } = await query(`SELECT value FROM config WHERE key = 'same_day_freebie_limit'`);
@@ -194,11 +198,11 @@ exports.create = asyncHandler(async (req, res) => {
          (requester_id, package_id, quantity_m3, grade, structure, chainage,
           nature_of_work, type_of_work, pouring_type, engineer_user_id, contractor_id,
           priority_flag, status, requested_start, requested_end,
-          is_split, rfi_id, batching_plant, same_day_freebie)
+          is_split, rfi_id, batching_plant, same_day_freebie, same_day_reason)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
                $14::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
                $15::TIMESTAMP AT TIME ZONE 'Asia/Kolkata',
-               $16,$17,$18,$19)
+               $16,$17,$18,$19,$20)
        RETURNING *`,
       [
         user.user_id, packageId, quantity_m3, grade, structure, chainage,
@@ -210,6 +214,7 @@ exports.create = asyncHandler(async (req, res) => {
         rfi_id || null,
         batching_plant || null,
         isFreebie,
+        isSameDay ? (same_day_reason?.trim() || null) : null,
       ]
     );
     const reservation = resRows[0];

@@ -30,6 +30,7 @@ export default function NewReservationPage() {
     batching_plant: '',
     slotId: '',
     selectedDate: '',
+    same_day_reason: '',
   });
   const [contractorSearch, setContractorSearch] = useState('');
   const [contractorOpen, setContractorOpen] = useState(false);
@@ -57,8 +58,9 @@ export default function NewReservationPage() {
   useEffect(() => {
     if (!form.selectedDate) return;
     const today = new Date().toISOString().split('T')[0];
-    setIsSameDay(form.selectedDate === today);
-    setForm((f) => ({ ...f, slotId: '' }));
+    const sameDay = form.selectedDate === today;
+    setIsSameDay(sameDay);
+    setForm((f) => ({ ...f, slotId: '', same_day_reason: sameDay ? f.same_day_reason : '' }));
   }, [form.selectedDate]);
 
   const { data: engineers = [] } = useQuery({
@@ -103,6 +105,7 @@ export default function NewReservationPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.slotId) { toast.error('Please select a time slot'); return; }
+    if (isSameDay && !form.same_day_reason.trim()) { toast.error('Please provide a reason for the same-day request'); return; }
     createMutation.mutate({
       slotId: form.slotId,
       quantity_m3: parseFloat(form.quantity_m3),
@@ -116,6 +119,7 @@ export default function NewReservationPage() {
       contractor_id: form.contractor_id,
       rfi_id: form.rfi_id || undefined,
       batching_plant: form.batching_plant || undefined,
+      same_day_reason: isSameDay ? form.same_day_reason.trim() : undefined,
     });
   };
 
@@ -246,6 +250,23 @@ export default function NewReservationPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Same-Day Reason */}
+        {isSameDay && (
+          <div>
+            <label className="label">
+              Reason for Same-Day Request <span className="text-red-500">*</span>
+            </label>
+            <p className="text-xs text-gray-500 mb-1.5">Explain why this request could not be planned a day in advance</p>
+            <textarea
+              className="input"
+              rows={3}
+              value={form.same_day_reason}
+              onChange={set('same_day_reason')}
+              required={isSameDay}
+            />
           </div>
         )}
 

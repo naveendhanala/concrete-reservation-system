@@ -87,6 +87,9 @@ async function downloadDeliveryReport(from: string, to: string) {
 // ── Same-Day Trends tab ────────────────────────────────────────────────────────
 
 function SameDayTrendsTab() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'Admin';
+
   const now = new Date();
   const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     .toISOString().split('T')[0];
@@ -106,6 +109,12 @@ function SameDayTrendsTab() {
   const { data, isLoading } = useQuery({
     queryKey: ['report-same-day-trends', params],
     queryFn: () => reportsApi.sameDayTrends(params),
+  });
+
+  const { data: requestsData = [], isLoading: requestsLoading } = useQuery({
+    queryKey: ['report-same-day-requests', params],
+    queryFn: () => reportsApi.sameDayRequests(params),
+    enabled: isAdmin,
   });
 
   const rows: { date: string; count: string; volume_m3: string }[] = data?.rows ?? [];
@@ -235,7 +244,7 @@ function SameDayTrendsTab() {
           </div>
 
           {/* Package-wise summary table */}
-          <div className="card overflow-hidden overflow-x-auto">
+          <div className="card overflow-hidden overflow-x-auto mb-6">
             <div className="p-4 border-b border-gray-100 font-semibold text-sm">
               Package-wise Same-Day Summary
             </div>
@@ -274,6 +283,60 @@ function SameDayTrendsTab() {
               </tbody>
             </table>
           </div>
+
+          {/* Individual requests with reasons — Admin only */}
+          {isAdmin && (
+            <div className="card overflow-hidden overflow-x-auto">
+              <div className="p-4 border-b border-gray-100">
+                <p className="font-semibold text-sm">Same-Day Requests — Detail & Reasons</p>
+                <p className="text-xs text-gray-400 mt-0.5">Why each PM raised the request on the same day instead of planning in advance</p>
+              </div>
+              {requestsLoading ? (
+                <div className="p-8 text-center text-gray-400">Loading…</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      {['Date', 'Res. No.', 'Package', 'Raised By', 'Structure', 'Qty (m³)', 'Status', 'Reason for Same-Day Request'].map((h) => (
+                        <th key={h} className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {(requestsData as any[]).map((row: any) => (
+                      <tr key={row.reservation_number} className="hover:bg-gray-50 align-top">
+                        <td className="px-4 py-2.5 whitespace-nowrap">{row.date}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs">{row.reservation_number}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">{row.package_name}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">{row.raised_by}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">{row.structure}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">{parseFloat(row.quantity_m3).toFixed(2)}</td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            row.status === 'Completed' || row.status === 'Auto-completed' ? 'bg-green-100 text-green-700' :
+                            row.status === 'Cancelled' || row.status === 'Rejected' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {row.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 max-w-xs text-gray-700">
+                          {row.same_day_reason || <span className="text-gray-300 italic">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                    {(requestsData as any[]).length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
+                          No same-day requests in this period
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>

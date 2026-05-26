@@ -402,4 +402,34 @@ router.get('/same-day-trends', asyncHandler(async (req, res) => {
   });
 }));
 
+// Same-day requests detail — Admin only
+router.get('/same-day-requests', requireRole('Admin'), asyncHandler(async (req, res) => {
+  const { from, to, package_id } = req.query;
+  const { rows } = await query(
+    `SELECT
+       r.reservation_number,
+       ${POUR_DATE}                                      AS date,
+       p.package_name,
+       u.name                                            AS raised_by,
+       r.structure,
+       r.chainage,
+       r.quantity_m3,
+       r.grade,
+       r.status,
+       COALESCE(r.same_day_reason, '')                   AS same_day_reason,
+       r.created_at
+     FROM reservations r
+     JOIN packages p  ON r.package_id  = p.package_id
+     JOIN users u     ON r.requester_id = u.user_id
+     WHERE r.priority_flag = 'SameDay'
+       AND r.status NOT IN ('Draft')
+       AND ($1::date IS NULL OR ${POUR_DATE} >= $1)
+       AND ($2::date IS NULL OR ${POUR_DATE} <= $2)
+       AND ($3::uuid IS NULL OR r.package_id = $3)
+     ORDER BY r.created_at DESC`,
+    [from || null, to || null, package_id || null]
+  );
+  res.json(rows);
+}));
+
 module.exports = router;

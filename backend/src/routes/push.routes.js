@@ -12,6 +12,12 @@ router.post('/subscribe', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Invalid subscription object' });
   }
 
+  // One endpoint can only belong to one user — evict stale bindings from other accounts
+  await query(
+    'DELETE FROM push_subscriptions WHERE endpoint = $1 AND user_id != $2',
+    [endpoint, req.user.user_id]
+  );
+
   await query(
     `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
      VALUES ($1, $2, $3, $4)

@@ -119,10 +119,10 @@ exports.getById = asyncHandler(async (req, res) => {
   );
 
   const { rows: modifications } = await query(
-    `SELECT rh.created_at AS changed_at, rh.reason_text, u.name AS changed_by_name
+    `SELECT rh.created_at AS changed_at, rh.reason_text, rh.change_type, u.name AS changed_by_name
      FROM reservation_history rh
      JOIN users u ON rh.changed_by = u.user_id
-     WHERE rh.reservation_id = $1 AND rh.change_type = 'Modified'
+     WHERE rh.reservation_id = $1 AND rh.change_type IN ('Modified', 'Cancellation')
      ORDER BY rh.created_at`,
     [req.params.id]
   );

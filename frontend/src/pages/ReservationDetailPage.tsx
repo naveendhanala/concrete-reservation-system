@@ -328,6 +328,19 @@ export default function ReservationDetailPage() {
               <TimelineRow label="Auto-completed (system)" value={(reservation.completed_at ?? '').slice(0, 16)} highlight="emerald" />
             )}
             {(reservation.modifications ?? []).map((m: any, i: number) => {
+              if (m.change_type === 'Cancellation') {
+                return (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="mt-1 w-2 h-2 rounded-full bg-red-500 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-red-700">
+                        Cancelled by {m.changed_by_name} · {(m.changed_at ?? '').slice(0, 16)}
+                      </p>
+                      {m.reason_text && <p className="text-xs text-gray-400 italic">"{m.reason_text}"</p>}
+                    </div>
+                  </div>
+                );
+              }
               let parsed: { reason?: string; changes?: { field: string; from: string; to: string }[] } = {};
               try { parsed = JSON.parse(m.reason_text); } catch { parsed = {}; }
               return (

@@ -73,10 +73,38 @@ async function sendPushToUser(userId, title, body, url = '/') {
   }
 }
 
+// ── Shared helpers ─────────────────────────────────────────────────────────────
+
+async function getManagersByPlant(plantName) {
+  const { rows } = await query(
+    `SELECT u.user_id, u.email
+     FROM users u
+     JOIN user_batching_plants ubp ON u.user_id = ubp.user_id
+     JOIN batching_plants bp ON ubp.plant_id = bp.plant_id
+     WHERE u.role = 'PMManager' AND bp.plant_name = $1`,
+    [plantName]
+  );
+  return rows;
+}
+
+async function notifyAll(recipients, title, message, reservationId, reservationUrl, emailSubject, emailBody) {
+  await Promise.all(
+    recipients.map((r) =>
+      Promise.all([
+        createInAppNotification(r.user_id, title, message, reservationId),
+        emailSubject && emailBody ? sendEmail(r.email, emailSubject, emailBody) : Promise.resolve(),
+        sendPushToUser(r.user_id, title, message, reservationUrl),
+      ])
+    )
+  );
+}
+
+// ── Notification functions ─────────────────────────────────────────────────────
+
 async function notifyReservationCreated(reservation, requester) {
   try {
-    const notifTitle = 'New Concrete Reservation';
-    const notifMessage = `${requester.name} submitted reservation ${reservation.reservation_number} for ${reservation.quantity_m3} m³`;
+    const title = 'New Concrete Reservation';
+    const message = `${requester.name} submitted reservation ${reservation.reservation_number} for ${reservation.quantity_m3} m³`;
     const emailSubject = `New Reservation: ${reservation.reservation_number}`;
     const emailBody = `<p>A new concrete reservation has been submitted.</p>
        <p><b>Reservation:</b> ${reservation.reservation_number}</p>
@@ -85,27 +113,12 @@ async function notifyReservationCreated(reservation, requester) {
     const reservationUrl = `/reservations/${reservation.reservation_id}`;
 
     const { rows: pmHeads } = await query(`SELECT user_id, email FROM users WHERE role = 'PMHead'`);
-    for (const pmh of pmHeads) {
-      await createInAppNotification(pmh.user_id, notifTitle, notifMessage, reservation.reservation_id);
-      await sendEmail(pmh.email, emailSubject, emailBody);
-      await sendPushToUser(pmh.user_id, notifTitle, notifMessage, reservationUrl);
-    }
+    const managers = reservation.batching_plant ? await getManagersByPlant(reservation.batching_plant) : [];
 
-    if (reservation.batching_plant) {
-      const { rows: managers } = await query(
-        `SELECT u.user_id, u.email
-         FROM users u
-         JOIN user_batching_plants ubp ON u.user_id = ubp.user_id
-         JOIN batching_plants bp ON ubp.plant_id = bp.plant_id
-         WHERE u.role = 'PMManager' AND bp.plant_name = $1`,
-        [reservation.batching_plant]
-      );
-      for (const mgr of managers) {
-        await createInAppNotification(mgr.user_id, notifTitle, notifMessage, reservation.reservation_id);
-        await sendEmail(mgr.email, emailSubject, emailBody);
-        await sendPushToUser(mgr.user_id, notifTitle, notifMessage, reservationUrl);
-      }
-    }
+    await Promise.all([
+      notifyAll(pmHeads, title, message, reservation.reservation_id, reservationUrl, emailSubject, emailBody),
+      notifyAll(managers, title, message, reservation.reservation_id, reservationUrl, emailSubject, emailBody),
+    ]);
   } catch (err) {
     logger.error('notifyReservationCreated failed:', err.message);
   }
@@ -121,13 +134,15 @@ async function notifyReservationAcknowledged(reservation) {
     const title = 'Reservation Acknowledged';
     const message = `Your reservation ${reservation.reservation_number} has been acknowledged by P&M.`;
     const reservationUrl = `/reservations/${reservation.reservation_id}`;
-    await createInAppNotification(user[0].user_id, title, message, reservation.reservation_id);
-    await sendEmail(
-      user[0].email,
-      `Reservation Acknowledged: ${reservation.reservation_number}`,
-      `<p>Your reservation <b>${reservation.reservation_number}</b> has been acknowledged.</p>`
-    );
-    await sendPushToUser(user[0].user_id, title, message, reservationUrl);
+    await Promise.all([
+      createInAppNotification(user[0].user_id, title, message, reservation.reservation_id),
+      sendEmail(
+        user[0].email,
+        `Reservation Acknowledged: ${reservation.reservation_number}`,
+        `<p>Your reservation <b>${reservation.reservation_number}</b> has been acknowledged.</p>`
+      ),
+      sendPushToUser(user[0].user_id, title, message, reservationUrl),
+    ]);
   } catch (err) {
     logger.error('notifyReservationAcknowledged failed:', err.message);
   }
@@ -143,8 +158,10 @@ async function notifySlotProposed(reservation) {
     const title = 'Alternative Slot Proposed';
     const message = `P&M has proposed an alternative slot for reservation ${reservation.reservation_number}.`;
     const reservationUrl = `/reservations/${reservation.reservation_id}`;
-    await createInAppNotification(user[0].user_id, title, message, reservation.reservation_id);
-    await sendPushToUser(user[0].user_id, title, message, reservationUrl);
+    await Promise.all([
+      createInAppNotification(user[0].user_id, title, message, reservation.reservation_id),
+      sendPushToUser(user[0].user_id, title, message, reservationUrl),
+    ]);
   } catch (err) {
     logger.error('notifySlotProposed failed:', err.message);
   }
@@ -153,28 +170,15 @@ async function notifySlotProposed(reservation) {
 async function notifyReservationStarted(reservation) {
   try {
     if (!reservation.batching_plant) return;
-    const { rows: managers } = await query(
-      `SELECT u.user_id, u.email
-       FROM users u
-       JOIN user_batching_plants ubp ON u.user_id = ubp.user_id
-       JOIN batching_plants bp ON ubp.plant_id = bp.plant_id
-       WHERE u.role = 'PMManager' AND bp.plant_name = $1`,
-      [reservation.batching_plant]
-    );
+    const managers = await getManagersByPlant(reservation.batching_plant);
     const title = 'Reservation Started';
     const message = `Reservation ${reservation.reservation_number} has been started and is ready for concrete delivery.`;
     const reservationUrl = `/reservations/${reservation.reservation_id}`;
-    for (const mgr of managers) {
-      await createInAppNotification(mgr.user_id, title, message, reservation.reservation_id);
-      await sendEmail(
-        mgr.email,
-        `Reservation Started: ${reservation.reservation_number}`,
-        `<p>Reservation <b>${reservation.reservation_number}</b> has been started.</p>
-         <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
-         <p><b>Batching Plant:</b> ${reservation.batching_plant}</p>`
-      );
-      await sendPushToUser(mgr.user_id, title, message, reservationUrl);
-    }
+    const emailSubject = `Reservation Started: ${reservation.reservation_number}`;
+    const emailBody = `<p>Reservation <b>${reservation.reservation_number}</b> has been started.</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Batching Plant:</b> ${reservation.batching_plant}</p>`;
+    await notifyAll(managers, title, message, reservation.reservation_id, reservationUrl, emailSubject, emailBody);
   } catch (err) {
     logger.error('notifyReservationStarted failed:', err.message);
   }
@@ -193,8 +197,10 @@ async function notifyApprovalActioned(approval, action) {
     const title = `Reservation ${status.charAt(0).toUpperCase() + status.slice(1)}`;
     const message = `Your same-day reservation ${res[0].reservation_number} has been ${status}.`;
     const reservationUrl = `/reservations/${res[0].reservation_id}`;
-    await createInAppNotification(res[0].requester_id, title, message, approval.reservation_id);
-    await sendPushToUser(res[0].requester_id, title, message, reservationUrl);
+    await Promise.all([
+      createInAppNotification(res[0].requester_id, title, message, approval.reservation_id),
+      sendPushToUser(res[0].requester_id, title, message, reservationUrl),
+    ]);
   } catch (err) {
     logger.error('notifyApprovalActioned failed:', err.message);
   }
@@ -207,16 +213,18 @@ async function notifyApprovalRequested(reservation, vpUserId) {
     const reservationUrl = `/reservations/${reservation.reservation_id}`;
     const { rows: vp } = await query('SELECT email FROM users WHERE user_id = $1', [vpUserId]);
     if (!vp[0]) return;
-    await createInAppNotification(vpUserId, title, message, reservation.reservation_id);
-    await sendEmail(
-      vp[0].email,
-      `Approval Required: ${reservation.reservation_number}`,
-      `<p>A same-day reservation requires your approval.</p>
-       <p><b>Reservation:</b> ${reservation.reservation_number}</p>
-       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
-       <p><b>Structure:</b> ${reservation.structure || 'N/A'}</p>`
-    );
-    await sendPushToUser(vpUserId, title, message, reservationUrl);
+    await Promise.all([
+      createInAppNotification(vpUserId, title, message, reservation.reservation_id),
+      sendEmail(
+        vp[0].email,
+        `Approval Required: ${reservation.reservation_number}`,
+        `<p>A same-day reservation requires your approval.</p>
+         <p><b>Reservation:</b> ${reservation.reservation_number}</p>
+         <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+         <p><b>Structure:</b> ${reservation.structure || 'N/A'}</p>`
+      ),
+      sendPushToUser(vpUserId, title, message, reservationUrl),
+    ]);
   } catch (err) {
     logger.error('notifyApprovalRequested failed:', err.message);
   }
@@ -234,18 +242,12 @@ async function notifyClusterHeadReservationCreated(reservation, requesterName) {
     const title = 'New Reservation in Your Package';
     const message = `${requesterName} submitted reservation ${reservation.reservation_number} for ${reservation.quantity_m3} m³ (${reservation.grade}).`;
     const reservationUrl = `/reservations/${reservation.reservation_id}`;
-    for (const ch of clusterHeads) {
-      await createInAppNotification(ch.user_id, title, message, reservation.reservation_id);
-      await sendEmail(
-        ch.email,
-        `New Reservation: ${reservation.reservation_number}`,
-        `<p>A new reservation has been submitted in your package.</p>
-         <p><b>Reservation:</b> ${reservation.reservation_number}</p>
-         <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
-         <p><b>Batching Plant:</b> ${reservation.batching_plant || 'N/A'}</p>`
-      );
-      await sendPushToUser(ch.user_id, title, message, reservationUrl);
-    }
+    const emailSubject = `New Reservation: ${reservation.reservation_number}`;
+    const emailBody = `<p>A new reservation has been submitted in your package.</p>
+       <p><b>Reservation:</b> ${reservation.reservation_number}</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Batching Plant:</b> ${reservation.batching_plant || 'N/A'}</p>`;
+    await notifyAll(clusterHeads, title, message, reservation.reservation_id, reservationUrl, emailSubject, emailBody);
   } catch (err) {
     logger.error('notifyClusterHeadReservationCreated failed:', err.message);
   }
@@ -263,18 +265,12 @@ async function notifyClusterHeadReservationCancelled(reservation) {
     const title = 'Reservation Cancelled';
     const message = `Reservation ${reservation.reservation_number} (${reservation.quantity_m3} m³) has been cancelled.`;
     const reservationUrl = `/reservations/${reservation.reservation_id}`;
-    for (const ch of clusterHeads) {
-      await createInAppNotification(ch.user_id, title, message, reservation.reservation_id);
-      await sendEmail(
-        ch.email,
-        `Reservation Cancelled: ${reservation.reservation_number}`,
-        `<p>A reservation in your package has been cancelled.</p>
-         <p><b>Reservation:</b> ${reservation.reservation_number}</p>
-         <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
-         <p><b>Reason:</b> ${reservation.cancellation_reason || 'N/A'}</p>`
-      );
-      await sendPushToUser(ch.user_id, title, message, reservationUrl);
-    }
+    const emailSubject = `Reservation Cancelled: ${reservation.reservation_number}`;
+    const emailBody = `<p>A reservation in your package has been cancelled.</p>
+       <p><b>Reservation:</b> ${reservation.reservation_number}</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Reason:</b> ${reservation.cancellation_reason || 'N/A'}</p>`;
+    await notifyAll(clusterHeads, title, message, reservation.reservation_id, reservationUrl, emailSubject, emailBody);
   } catch (err) {
     logger.error('notifyClusterHeadReservationCancelled failed:', err.message);
   }
@@ -283,28 +279,15 @@ async function notifyClusterHeadReservationCancelled(reservation) {
 async function notifyPMManagerReservationCompleted(reservation) {
   try {
     if (!reservation.batching_plant) return;
-    const { rows: managers } = await query(
-      `SELECT u.user_id, u.email
-       FROM users u
-       JOIN user_batching_plants ubp ON u.user_id = ubp.user_id
-       JOIN batching_plants bp ON ubp.plant_id = bp.plant_id
-       WHERE u.role = 'PMManager' AND bp.plant_name = $1`,
-      [reservation.batching_plant]
-    );
+    const managers = await getManagersByPlant(reservation.batching_plant);
     const title = 'Reservation Completed';
     const message = `Reservation ${reservation.reservation_number} has been marked as completed (${reservation.actual_quantity_m3 ?? reservation.quantity_m3} m³ delivered).`;
     const reservationUrl = `/reservations/${reservation.reservation_id}`;
-    for (const mgr of managers) {
-      await createInAppNotification(mgr.user_id, title, message, reservation.reservation_id);
-      await sendEmail(
-        mgr.email,
-        `Reservation Completed: ${reservation.reservation_number}`,
-        `<p>Reservation <b>${reservation.reservation_number}</b> has been completed.</p>
-         <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
-         <p><b>Batching Plant:</b> ${reservation.batching_plant}</p>`
-      );
-      await sendPushToUser(mgr.user_id, title, message, reservationUrl);
-    }
+    const emailSubject = `Reservation Completed: ${reservation.reservation_number}`;
+    const emailBody = `<p>Reservation <b>${reservation.reservation_number}</b> has been completed.</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Batching Plant:</b> ${reservation.batching_plant}</p>`;
+    await notifyAll(managers, title, message, reservation.reservation_id, reservationUrl, emailSubject, emailBody);
   } catch (err) {
     logger.error('notifyPMManagerReservationCompleted failed:', err.message);
   }
@@ -320,8 +303,10 @@ async function notifyPMDeliveryLogged(reservation, delivery, loggedByName) {
     const title = 'Delivery Logged';
     const message = `${loggedByName} logged a delivery of ${delivery.quantity_m3} m³ for reservation ${reservation.reservation_number} (TM: ${delivery.tm_no}, Plant: ${delivery.batching_plant}).`;
     const reservationUrl = `/reservations/${reservation.reservation_id}`;
-    await createInAppNotification(requester[0].user_id, title, message, reservation.reservation_id);
-    await sendPushToUser(requester[0].user_id, title, message, reservationUrl);
+    await Promise.all([
+      createInAppNotification(requester[0].user_id, title, message, reservation.reservation_id),
+      sendPushToUser(requester[0].user_id, title, message, reservationUrl),
+    ]);
   } catch (err) {
     logger.error('notifyPMDeliveryLogged failed:', err.message);
   }
@@ -330,29 +315,16 @@ async function notifyPMDeliveryLogged(reservation, delivery, loggedByName) {
 async function notifyPMManagerReservationCancelled(reservation) {
   try {
     if (!reservation.batching_plant) return;
-    const { rows: managers } = await query(
-      `SELECT u.user_id, u.email
-       FROM users u
-       JOIN user_batching_plants ubp ON u.user_id = ubp.user_id
-       JOIN batching_plants bp ON ubp.plant_id = bp.plant_id
-       WHERE u.role = 'PMManager' AND bp.plant_name = $1`,
-      [reservation.batching_plant]
-    );
+    const managers = await getManagersByPlant(reservation.batching_plant);
     const title = 'Reservation Cancelled';
     const message = `Reservation ${reservation.reservation_number} (${reservation.quantity_m3} m³, ${reservation.grade}) has been cancelled.`;
     const reservationUrl = `/reservations/${reservation.reservation_id}`;
-    for (const mgr of managers) {
-      await createInAppNotification(mgr.user_id, title, message, reservation.reservation_id);
-      await sendEmail(
-        mgr.email,
-        `Reservation Cancelled: ${reservation.reservation_number}`,
-        `<p>Reservation <b>${reservation.reservation_number}</b> has been cancelled.</p>
-         <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
-         <p><b>Batching Plant:</b> ${reservation.batching_plant}</p>
-         <p><b>Reason:</b> ${reservation.cancellation_reason || 'N/A'}</p>`
-      );
-      await sendPushToUser(mgr.user_id, title, message, reservationUrl);
-    }
+    const emailSubject = `Reservation Cancelled: ${reservation.reservation_number}`;
+    const emailBody = `<p>Reservation <b>${reservation.reservation_number}</b> has been cancelled.</p>
+       <p><b>Quantity:</b> ${reservation.quantity_m3} m³ | <b>Grade:</b> ${reservation.grade}</p>
+       <p><b>Batching Plant:</b> ${reservation.batching_plant}</p>
+       <p><b>Reason:</b> ${reservation.cancellation_reason || 'N/A'}</p>`;
+    await notifyAll(managers, title, message, reservation.reservation_id, reservationUrl, emailSubject, emailBody);
   } catch (err) {
     logger.error('notifyPMManagerReservationCancelled failed:', err.message);
   }

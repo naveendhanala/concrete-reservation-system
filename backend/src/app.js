@@ -39,18 +39,16 @@ app.use(cors({
 // Rate limiting
 const isDev = process.env.NODE_ENV !== 'production';
 app.use('/api/auth', rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
+  windowMs: 15 * 60 * 1000,
   max: isDev ? 1000 : 20,
-  skip: () => isDev, 
-  //max: 20,
+  skip: () => isDev,
   message: { error: 'Too many login attempts. Try again in 15 minutes.' },
 }));
 
 app.use(rateLimit({
   windowMs: 60 * 1000,
-  max: isDev ? 10000 : 200, 
+  max: isDev ? 10000 : 200,
   skip: () => isDev,
-  //max: 200,
 }));
 
 // Parsing
@@ -81,19 +79,6 @@ if (process.env.MAINTENANCE_MODE === 'true') {
 app.use('/api/auth', authRoutes);
 app.use('/api/webhook/whatsapp', whatsappRoutes);
 
-// One-time seed endpoint — secured by CRON_SECRET, remove after use
-app.post('/api/seed', async (req, res) => {
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  try {
-    const seed = require('./db/seed-fn');
-    await seed();
-    res.json({ ok: true, message: 'Database seeded successfully' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // Vercel Cron Job: generate slots daily (runs at 18:00 UTC = 23:30 IST)
 app.get('/api/cron/generate-slots', async (req, res) => {

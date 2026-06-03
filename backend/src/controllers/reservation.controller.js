@@ -109,23 +109,24 @@ exports.getById = asyncHandler(async (req, res) => {
   );
   if (!rows[0]) throw new AppError('Reservation not found', 404);
 
-  const { rows: deliveries } = await query(
-    `SELECT d.delivery_id, d.quantity_m3, d.tm_no, d.driver_no, d.batching_plant, d.delivered_at, u.name AS delivered_by_name
-     FROM reservation_deliveries d
-     JOIN users u ON d.delivered_by = u.user_id
-     WHERE d.reservation_id = $1
-     ORDER BY d.delivered_at`,
-    [req.params.id]
-  );
-
-  const { rows: modifications } = await query(
-    `SELECT rh.created_at AS changed_at, rh.reason_text, rh.change_type, u.name AS changed_by_name
-     FROM reservation_history rh
-     JOIN users u ON rh.changed_by = u.user_id
-     WHERE rh.reservation_id = $1 AND rh.change_type IN ('Modified', 'Cancellation')
-     ORDER BY rh.created_at`,
-    [req.params.id]
-  );
+  const [{ rows: deliveries }, { rows: modifications }] = await Promise.all([
+    query(
+      `SELECT d.delivery_id, d.quantity_m3, d.tm_no, d.driver_no, d.batching_plant, d.delivered_at, u.name AS delivered_by_name
+       FROM reservation_deliveries d
+       JOIN users u ON d.delivered_by = u.user_id
+       WHERE d.reservation_id = $1
+       ORDER BY d.delivered_at`,
+      [req.params.id]
+    ),
+    query(
+      `SELECT rh.created_at AS changed_at, rh.reason_text, rh.change_type, u.name AS changed_by_name
+       FROM reservation_history rh
+       JOIN users u ON rh.changed_by = u.user_id
+       WHERE rh.reservation_id = $1 AND rh.change_type IN ('Modified', 'Cancellation')
+       ORDER BY rh.created_at`,
+      [req.params.id]
+    ),
+  ]);
 
   res.json({ ...rows[0], deliveries, modifications });
 });

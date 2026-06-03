@@ -20,7 +20,7 @@ const navItems = [
   { to: '/daily-log', icon: BookOpen, label: 'Daily Log', roles: ['Admin', 'LabourMob'] },
   { to: '/contractors', icon: Building2, label: 'Contractors', roles: ['Admin', 'LabourMob'] },
   { to: '/labour-mobilization', icon: BarChart2, label: 'Labour Mobilization Report', roles: ['Admin', 'LabourMob'] },
-  { to: '/machinery', icon: Wrench, label: 'Machinery (Under Testing)', roles: ['PM','ClusterHead','VP','PMHead','PMManager','Admin','Engineer'] },
+  { to: '/machinery', icon: Wrench, label: 'Machinery', roles: ['Admin'] },
   { to: '/settings', icon: Settings, label: 'Settings', roles: ['Admin'] },
 ];
 

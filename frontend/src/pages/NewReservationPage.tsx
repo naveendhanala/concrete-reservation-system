@@ -6,11 +6,7 @@ import { reservationsApi, slotsApi, usersApi, packagesApi } from '../api/index';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { AlertCircle, CheckCircle } from 'lucide-react';
-
-const GRADES = ['M10_PCC', 'M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M40', 'M45', 'M50_PSC'];
-const POURING_TYPES = ['BoomPlacer', 'ConcretePump', 'Chute', 'Manual'];
-const TYPE_OF_WORK = ['Bridges', 'SWD', 'Precast Manholes', 'Precast SWD', 'Camp Works', 'Kerb', 'Bridge/Labour Sheds', 'Bridge/Pier Cap Staging Purpose', 'Girder Casting Yard', 'Casting Yard', 'Power EHV'];
-const BATCHING_PLANTS = ['Camp-1 M3', 'Camp-2 M3', 'Camp-3 M1', 'Camp-1 CP-30'];
+import { GRADES, POURING_TYPES, TYPE_OF_WORK } from '../constants';
 
 export default function NewReservationPage() {
   const { user } = useAuth();
@@ -33,9 +29,17 @@ export default function NewReservationPage() {
     same_day_reason: '',
   });
   const [contractorSearch, setContractorSearch] = useState('');
+  const [debouncedContractorSearch, setDebouncedContractorSearch] = useState('');
   const [contractorOpen, setContractorOpen] = useState(false);
   const contractorRef = useRef<HTMLDivElement>(null);
   const [isSameDay, setIsSameDay] = useState(false);
+
+  // Debounce contractor search — only fires server-side call after 300ms of no typing
+  useEffect(() => {
+    if (!contractorSearch) { setDebouncedContractorSearch(''); return; }
+    const t = setTimeout(() => setDebouncedContractorSearch(contractorSearch), 300);
+    return () => clearTimeout(t);
+  }, [contractorSearch]);
 
   const { data: freebieStatus } = useQuery({
     queryKey: ['freebie-status'],
@@ -69,14 +73,15 @@ export default function NewReservationPage() {
     enabled: !!user?.packageIds?.[0],
   });
 
-  const { data: allContractors = [] } = useQuery({
-    queryKey: ['contractors'],
-    queryFn: () => usersApi.getContractors(''),
+  const { data: plants = [] } = useQuery({
+    queryKey: ['plants'],
+    queryFn: usersApi.getPlants,
   });
 
-  const filteredContractors = contractorSearch
-    ? allContractors.filter((c: any) => c.name.toLowerCase().includes(contractorSearch.toLowerCase()))
-    : allContractors;
+  const { data: filteredContractors = [] } = useQuery({
+    queryKey: ['contractors', debouncedContractorSearch],
+    queryFn: () => usersApi.getContractors(debouncedContractorSearch || undefined),
+  });
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -174,7 +179,7 @@ export default function NewReservationPage() {
             <label className="label">Batching Plant <span className="text-red-500">*</span></label>
             <select className="input" value={form.batching_plant} onChange={set('batching_plant')} required>
               <option value="">Select plant</option>
-              {BATCHING_PLANTS.map((p) => <option key={p} value={p}>{p}</option>)}
+              {plants.map((p: any) => <option key={p.plant_id} value={p.plant_name}>{p.plant_name}</option>)}
             </select>
           </div>
         </div>

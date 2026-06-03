@@ -1,6 +1,6 @@
 // src/pages/ReservationDetailPage.tsx
-const GRADES = ['M10_PCC', 'M15', 'M20', 'M25', 'M30', 'M30_SRC', 'M35', 'M40', 'M45', 'M50_PSC'];
 import { useParams, useNavigate } from 'react-router-dom';
+import { GRADES } from '../constants';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { reservationsApi } from '../api/index';
 import { useAuth } from '../context/AuthContext';

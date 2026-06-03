@@ -54,8 +54,9 @@ exports.pmDashboard = asyncHandler(async (req, res) => {
 
 // ── P&M HEAD DASHBOARD ────────────────────────────────────────────────────────
 exports.pmHeadDashboard = asyncHandler(async (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const IST = 5.5 * 60 * 60 * 1000;
+  const today    = new Date(Date.now() + IST).toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + IST + 86400000).toISOString().split('T')[0];
 
   const [todaySlots, pendingAck, tomorrowReservations, todayStats] = await Promise.all([
     // Today's slot utilization
@@ -220,8 +221,9 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
 
 // ── P&M MANAGER DASHBOARD ─────────────────────────────────────────────────────
 exports.pmManagerDashboard = asyncHandler(async (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const IST = 5.5 * 60 * 60 * 1000;
+  const today    = new Date(Date.now() + IST).toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + IST + 86400000).toISOString().split('T')[0];
 
   // Get plant names assigned to this manager
   const { rows: plants } = await query(

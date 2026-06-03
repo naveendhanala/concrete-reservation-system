@@ -40,14 +40,14 @@ app.use(cors({
 const isDev = process.env.NODE_ENV !== 'production';
 app.use('/api/auth', rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 1000 : 20,
+  max: 20,
   skip: () => isDev,
   message: { error: 'Too many login attempts. Try again in 15 minutes.' },
 }));
 
 app.use(rateLimit({
   windowMs: 60 * 1000,
-  max: isDev ? 10000 : 200,
+  max: 200,
   skip: () => isDev,
 }));
 

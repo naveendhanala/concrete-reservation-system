@@ -126,7 +126,7 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
          AVG(EXTRACT(EPOCH FROM (acknowledged_at - created_at))/3600) AS avg_ack_hours,
          COALESCE(SUM(actual_quantity_m3), 0) AS total_actual_m3
        FROM reservations
-       WHERE status IN ('Completed','Auto-completed')
+       WHERE status IN ('Completed','Auto-completed','Started')
          AND DATE(requested_start) >= $1`,
       [thirtyDaysAgo]
     ),

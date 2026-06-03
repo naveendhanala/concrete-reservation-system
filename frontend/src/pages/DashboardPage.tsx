@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { dashboardApi } from '../api/index';
 import { ClipboardList, CheckCircle, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import StatusBadge from '../components/common/StatusBadge';
 
 function StatCard({ label, value, icon: Icon, color, sublabel, unit }: any) {
   return (
@@ -19,23 +20,6 @@ function StatCard({ label, value, icon: Icon, color, sublabel, unit }: any) {
         {sublabel && <p className="text-xs text-gray-400">{sublabel}</p>}
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cls: Record<string, string> = {
-    Submitted: 'badge-submitted',
-    Acknowledged: 'badge-acknowledged',
-    PendingApproval: 'badge-pending',
-    Rejected: 'badge-rejected',
-    Cancelled: 'badge-cancelled',
-    Completed: 'badge-completed',
-    'Auto-completed': 'bg-teal-100 text-teal-700',
-  };
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cls[status] || 'bg-gray-100 text-gray-600'}`}>
-      {status}
-    </span>
   );
 }
 
@@ -188,9 +172,13 @@ function aggregateSlots(slots: any[]) {
   return Object.values(map).sort((a, b) => a.start_time.localeCompare(b.start_time));
 }
 
-// ── P&M Head Dashboard ────────────────────────────────────────────────────────
-function PMHeadDashboard() {
-  const { data, isLoading } = useQuery({ queryKey: ['dashboard-pmhead'], queryFn: dashboardApi.pmhead });
+// ── P&M Operations Dashboard (shared by PMHead and PMManager) ─────────────────
+function PMOperationsDashboard({ queryKey, queryFn, pendingSubtitle }: {
+  queryKey: string;
+  queryFn: () => Promise<any>;
+  pendingSubtitle?: string;
+}) {
+  const { data, isLoading } = useQuery({ queryKey: [queryKey], queryFn });
   if (isLoading) return <div className="animate-pulse h-48 bg-gray-100 rounded-xl" />;
 
   return (
@@ -204,92 +192,7 @@ function PMHeadDashboard() {
             <div>
               <p className="text-2xl font-bold text-gray-900">{data?.pendingAcknowledgments?.length || 0}</p>
               <p className="text-sm text-gray-500">Pending Acknowledgment</p>
-            </div>
-          </div>
-        </Link>
-        <Link to={`/reservations?date=${new Date().toISOString().split('T')[0]}`} className="block">
-          <div className="card p-5 flex items-center gap-4 h-full">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-50 text-blue-600">
-              <ClipboardList className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{(data?.todayCompleted || 0) + (data?.todayPending || 0)}</p>
-              <p className="text-sm text-gray-500">Today's Reservations</p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                <span className="text-emerald-600 font-medium">{data?.todayCompleted || 0} completed</span>
-                {' · '}
-                <span className="text-yellow-600 font-medium">{data?.todayPending || 0} pending</span>
-              </p>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      <div className="card p-5">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="font-semibold text-gray-900">Today's Slot Utilization</h3>
-          <Link to="/calendar" className="text-primary-600 text-sm hover:underline">Full Calendar</Link>
-        </div>
-        <div className="space-y-2 max-h-64 overflow-y-auto">
-          {aggregateSlots(data?.todaySlots).map((slot: any) => {
-            const util = Math.round((slot.booked_m3 / slot.capacity_m3) * 100);
-            return (
-              <div key={slot.slot_id} className="flex items-center gap-3">
-                <span className="text-xs text-gray-500 w-28 flex-shrink-0">
-                  {(slot.start_time ?? '').slice(11, 16)} – {(slot.end_time ?? '').slice(11, 16)}
-                </span>
-                <div className="flex-1 bg-gray-100 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full ${util > 80 ? 'bg-red-500' : util > 50 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                    style={{ width: `${Math.min(util, 100)}%` }}
-                  />
-                </div>
-                <span className="text-xs text-gray-500 w-24 text-right">{slot.booked_m3.toFixed(0)}/{slot.capacity_m3.toFixed(0)} m³</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {data?.pendingAcknowledgments?.length > 0 && (
-        <div className="card p-5">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold text-gray-900">Needs Acknowledgment</h3>
-            <Link to="/reservations?status=Submitted" className="text-primary-600 text-sm hover:underline">View all</Link>
-          </div>
-          {data.pendingAcknowledgments.slice(0, 5).map((r: any) => (
-            <Link key={r.reservation_id} to={`/reservations/${r.reservation_id}`}
-              className="flex justify-between items-start py-2 border-b last:border-0 hover:bg-gray-50 px-1 rounded">
-              <div>
-                <p className="text-sm font-medium">{r.reservation_number}</p>
-                <p className="text-xs text-gray-500">{r.requester_name} · {r.package_name} · {r.quantity_m3} m³ {r.grade}</p>
-              </div>
-              <span className="text-xs text-gray-400">{new Date(r.requested_start).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── P&M Manager Dashboard ─────────────────────────────────────────────────────
-function PMManagerDashboard() {
-  const { data, isLoading } = useQuery({ queryKey: ['dashboard-pmmanager'], queryFn: dashboardApi.pmmanager });
-  if (isLoading) return <div className="animate-pulse h-48 bg-gray-100 rounded-xl" />;
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
-        <Link to="/reservations?status=Submitted" className="block">
-          <div className="card p-5 flex items-center gap-4 h-full">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-yellow-50 text-yellow-600">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{data?.pendingAcknowledgments?.length || 0}</p>
-              <p className="text-sm text-gray-500">Pending Acknowledgment</p>
-              <p className="text-xs text-gray-400 mt-0.5">Your plant's packages</p>
+              {pendingSubtitle && <p className="text-xs text-gray-400 mt-0.5">{pendingSubtitle}</p>}
             </div>
           </div>
         </Link>
@@ -375,8 +278,8 @@ export default function DashboardPage() {
       </div>
       {user?.role === 'PM' && <PMDashboard />}
       {user?.role === 'VP' && <VPDashboard />}
-      {user?.role === 'PMHead' && <PMHeadDashboard />}
-      {user?.role === 'PMManager' && <PMManagerDashboard />}
+      {user?.role === 'PMHead' && <PMOperationsDashboard queryKey="dashboard-pmhead" queryFn={dashboardApi.pmhead} />}
+      {user?.role === 'PMManager' && <PMOperationsDashboard queryKey="dashboard-pmmanager" queryFn={dashboardApi.pmmanager} pendingSubtitle="Your plant's packages" />}
       {(user?.role === 'ClusterHead' || user?.role === 'Admin') && <VPDashboard />}
     </div>
   );

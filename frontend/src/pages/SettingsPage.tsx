@@ -10,15 +10,6 @@ const CONFIG_LABELS: Record<string, string> = {
   same_day_freebie_limit: 'Same-Day Freebie Passes per Package (per day)',
 };
 
-const SHIFTS = [
-  { name: 'Shift 1', start: '07:00', end: '10:00', capacity_m3: 200 },
-  { name: 'Shift 2', start: '10:00', end: '14:00', capacity_m3: 400 },
-  { name: 'Shift 3', start: '14:00', end: '18:00', capacity_m3: 600 },
-  { name: 'Shift 4', start: '18:00', end: '22:00', capacity_m3: 500 },
-  { name: 'Shift 5', start: '22:00', end: '00:00', capacity_m3: 300 },
-];
-
-const totalCapacity = SHIFTS.reduce((sum, s) => sum + s.capacity_m3, 0);
 
 export default function SettingsPage() {
   const qc = useQueryClient();
@@ -136,41 +127,6 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Fixed shift schedule */}
-      <div>
-        <h2 className="text-base font-semibold text-gray-900 mb-3">
-          Plant Shift Schedule
-          <span className="ml-2 text-xs font-normal text-gray-400">
-            ({SHIFTS.length} shifts · {totalCapacity} m³ total capacity/day)
-          </span>
-        </h2>
-        <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wide">Shift</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wide">Time</th>
-                <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wide">Capacity</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {SHIFTS.map((shift) => (
-                <tr key={shift.name} className="hover:bg-gray-50">
-                  <td className="px-4 py-2.5 font-medium text-gray-800">{shift.name}</td>
-                  <td className="px-4 py-2.5 font-mono text-gray-600">{shift.start} – {shift.end}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{shift.capacity_m3} m³</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-gray-50 border-t border-gray-100">
-              <tr>
-                <td colSpan={2} className="px-4 py-2.5 text-xs font-medium text-gray-500">Total</td>
-                <td className="px-4 py-2.5 text-xs font-semibold text-gray-700">{totalCapacity} m³</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }

@@ -22,9 +22,10 @@ async function downloadDailyReport(date: string) {
     }
     const sheetData = [
       ['Sr.No', 'Date', 'Contractor', 'Chainage', 'Package', 'Grade',
-       'Actual Qty (m³)', 'Structure', 'Nature of Work', 'RFI ID', 'TM No.', 'Batching Plant'],
+       'Requested Qty (m³)', 'Actual Qty (m³)', 'Structure', 'Nature of Work', 'RFI ID', 'TM No.', 'Batching Plant'],
       ...rows.map((r) => [
         Number(r.sr_no), r.date, r.contractor, r.chainage, r.package_name, r.grade,
+        r.quantity_m3 != null ? Number(r.quantity_m3) : '',
         r.actual_quantity_m3 != null ? Number(r.actual_quantity_m3) : '',
         r.structure, r.nature_of_work, r.rfi_id, r.tm_nos, r.batching_plants,
       ]),
@@ -32,7 +33,7 @@ async function downloadDailyReport(date: string) {
     const ws = XLSX.utils.aoa_to_sheet(sheetData);
     ws['!cols'] = [
       { wch: 6 }, { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 24 },
-      { wch: 8 }, { wch: 14 }, { wch: 24 }, { wch: 28 }, { wch: 16 }, { wch: 20 }, { wch: 20 },
+      { wch: 8 }, { wch: 16 }, { wch: 14 }, { wch: 24 }, { wch: 28 }, { wch: 16 }, { wch: 20 }, { wch: 20 },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Daily Report');

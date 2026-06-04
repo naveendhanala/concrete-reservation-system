@@ -136,6 +136,7 @@ router.get('/daily', requireRole('PMHead', 'PMManager', 'PM', 'Admin', 'ClusterH
        r.chainage,
        p.package_name,
        r.grade,
+       r.quantity_m3,
        r.actual_quantity_m3,
        r.structure,
        r.nature_of_work,

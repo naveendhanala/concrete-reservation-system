@@ -46,6 +46,54 @@ async function downloadDailyReport(date: string) {
   }
 }
 
+async function downloadDelayReport(from: string, to: string, packageId?: string) {
+  if (!from || !to) { toast.error('Please select a date range'); return; }
+  const toastId = toast.loading('Generating report…');
+  try {
+    const XLSX = await import('xlsx');
+    const params: Record<string, any> = { from, to };
+    if (packageId) params.package_id = packageId;
+    const rows: any[] = await reportsApi.delayAnalysis(params);
+    if (rows.length === 0) {
+      toast.dismiss(toastId);
+      toast.error('No reservations found for this range');
+      return;
+    }
+    const fmt = (ts: string | null) =>
+      ts ? new Date(ts).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) : '—';
+    const sheetData = [
+      ['Sr.No', 'Date', 'Request ID', 'Package', 'Slot', 'Sub-contractor',
+       'Requested Qty (m³)', 'Started Time', 'Delivered Qty (m³)', 'First Delivery Time', 'Last Delivery Time'],
+      ...rows.map((r, i) => [
+        i + 1,
+        r.date || '—',
+        r.reservation_number,
+        r.package_name,
+        r.slot || '—',
+        r.contractor || '—',
+        r.quantity_m3 != null ? Number(r.quantity_m3) : '',
+        fmt(r.started_at),
+        r.delivered_quantity != null ? Number(r.delivered_quantity) : 0,
+        fmt(r.first_delivery_time),
+        fmt(r.last_delivery_time),
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    ws['!cols'] = [
+      { wch: 6 }, { wch: 12 }, { wch: 18 }, { wch: 24 }, { wch: 14 }, { wch: 28 },
+      { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 22 }, { wch: 22 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Delay Analysis');
+    XLSX.writeFile(wb, `Delay_Analysis_${from}_to_${to}.xlsx`);
+    toast.dismiss(toastId);
+    toast.success(`Report downloaded — ${rows.length} reservation(s)`);
+  } catch (err: any) {
+    toast.dismiss(toastId);
+    toast.error(err.response?.data?.error || 'Failed to generate report');
+  }
+}
+
 async function downloadDeliveryReport(from: string, to: string) {
   if (!from || !to) { toast.error('Please select a date range'); return; }
   const toastId = toast.loading('Generating report…');
@@ -362,6 +410,17 @@ export default function ReportsPage() {
     from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0],
   });
+  const [delayRange, setDelayRange] = useState({
+    from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
+    to: new Date().toISOString().split('T')[0],
+  });
+  const [delayPackageId, setDelayPackageId] = useState('');
+
+  const { data: allPackages = [] } = useQuery({
+    queryKey: ['packages-list'],
+    queryFn: packagesApi.list,
+    enabled: tab === 'downloads',
+  });
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
   const [range, setRange] = useState({ from: yesterday, to: yesterday });
 
@@ -462,6 +521,47 @@ export default function ReportsPage() {
                 </div>
                 <button
                   onClick={() => downloadDeliveryReport(dlRange.from, dlRange.to)}
+                  className="btn-primary flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <Download className="w-4 h-4" /> Download Excel
+                </button>
+              </div>
+            </div>
+          )}
+          {canDownloadDaily && (
+            <div className="card p-4 flex flex-wrap items-end gap-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-800 mb-1">Delay Analysis Report</p>
+                <p className="text-xs text-gray-400">Request ID, slot, sub-contractor, requested qty, started time, delivered qty, first & last delivery time</p>
+              </div>
+              <div className="ml-auto flex items-end gap-3 flex-wrap">
+                {!isPM && (
+                  <div>
+                    <label className="label">Package</label>
+                    <select
+                      className="input"
+                      value={delayPackageId}
+                      onChange={(e) => setDelayPackageId(e.target.value)}
+                    >
+                      <option value="">All Packages</option>
+                      {(allPackages as any[]).map((p: any) => (
+                        <option key={p.package_id} value={p.package_id}>{p.package_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className="label">From</label>
+                  <input type="date" className="input" value={delayRange.from}
+                    onChange={(e) => setDelayRange((r) => ({ ...r, from: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">To</label>
+                  <input type="date" className="input" value={delayRange.to}
+                    onChange={(e) => setDelayRange((r) => ({ ...r, to: e.target.value }))} />
+                </div>
+                <button
+                  onClick={() => downloadDelayReport(delayRange.from, delayRange.to, delayPackageId || undefined)}
                   className="btn-primary flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <Download className="w-4 h-4" /> Download Excel

@@ -403,6 +403,47 @@ router.get('/same-day-trends', asyncHandler(async (req, res) => {
   });
 }));
 
+// Delay analysis report — per reservation: slot, contractor, requested qty, started time, delivered qty, first/last delivery
+router.get('/delay-analysis', requireRole('PMHead', 'PMManager', 'PM', 'Admin', 'ClusterHead', 'VP'), asyncHandler(async (req, res) => {
+  const { from, to } = req.query;
+  const packageId = await resolvePackageId(req);
+
+  const { rows } = await query(
+    `SELECT
+       r.reservation_number,
+       ${POUR_DATE}                                                  AS date,
+       p.package_name,
+       COALESCE(
+         STRING_AGG(
+           DISTINCT TO_CHAR(s.start_time, 'HH24:MI') || '–' || TO_CHAR(s.end_time, 'HH24:MI'),
+           ', '
+           ORDER BY TO_CHAR(s.start_time, 'HH24:MI') || '–' || TO_CHAR(s.end_time, 'HH24:MI')
+         ),
+         ''
+       )                                                           AS slot,
+       COALESCE(c.name, '')                                       AS contractor,
+       r.quantity_m3,
+       (r.started_at AT TIME ZONE 'Asia/Kolkata')                AS started_at,
+       COALESCE(SUM(d.quantity_m3), 0)                           AS delivered_quantity,
+       MIN(d.delivered_at AT TIME ZONE 'Asia/Kolkata')           AS first_delivery_time,
+       MAX(d.delivered_at AT TIME ZONE 'Asia/Kolkata')           AS last_delivery_time
+     FROM reservations r
+     JOIN packages p         ON r.package_id    = p.package_id
+     LEFT JOIN contractors c ON r.contractor_id = c.contractor_id
+     LEFT JOIN reservation_slot_mappings rsm ON r.reservation_id = rsm.reservation_id
+     LEFT JOIN slots s                       ON rsm.slot_id      = s.slot_id
+     LEFT JOIN reservation_deliveries d      ON r.reservation_id = d.reservation_id
+     WHERE r.status NOT IN ('Draft', 'Cancelled', 'Rejected')
+       AND ($1::date IS NULL OR ${POUR_DATE} >= $1)
+       AND ($2::date IS NULL OR ${POUR_DATE} <= $2)
+       AND ($3::uuid IS NULL OR r.package_id = $3)
+     GROUP BY r.reservation_id, r.reservation_number, p.package_name, c.name, r.quantity_m3, r.started_at
+     ORDER BY r.requested_start`,
+    [from || null, to || null, packageId]
+  );
+  res.json(rows);
+}));
+
 // Same-day requests detail — Admin only
 router.get('/same-day-requests', requireRole('Admin'), asyncHandler(async (req, res) => {
   const { from, to, package_id } = req.query;

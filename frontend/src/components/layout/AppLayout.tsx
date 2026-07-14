@@ -82,7 +82,7 @@ export default function AppLayout() {
   const { data: notifications = [] } = useQuery({
     queryKey: ['notifications'],
     queryFn: notificationsApi.list,
-    refetchInterval: 30000,
+    refetchInterval: 120000,
   });
 
   const markAllMutation = useMutation({

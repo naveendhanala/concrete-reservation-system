@@ -108,29 +108,8 @@ export const usersApi = {
   updateContractor: (id: string, data: Record<string, any>) =>
     client.patch(`/users/contractors/${id}`, data).then((r) => r.data),
 
-  getDailyLog: (date?: string) =>
-    client.get('/users/contractors/daily-log', { params: { date } }).then((r) => r.data),
-
-  createDailyLogEntry: (data: {
-    contractor_id: string;
-    package_id: string;
-    type_of_work: string;
-    available_count: number;
-    additional_expected?: number | null;
-    expected_date?: string | null;
-  }) => client.post('/users/contractors/daily-log', data).then((r) => r.data),
-
-  updateDailyLogEntry: (
-    logId: string,
-    data: {
-      available_count?: number;
-      additional_expected?: number | null;
-      expected_date?: string | null;
-    }
-  ) => client.patch(`/users/contractors/daily-log/${logId}`, data).then((r) => r.data),
-
-  deleteDailyLogEntry: (logId: string) =>
-    client.delete(`/users/contractors/daily-log/${logId}`).then((r) => r.data),
+  deleteContractor: (id: string) =>
+    client.delete(`/users/contractors/${id}`).then((r) => r.data),
 
   create: (data: Record<string, any>) =>
     client.post('/users', data).then((r) => r.data),
@@ -152,41 +131,6 @@ export const packagesApi = {
   getFreebieStatus: () => client.get('/packages/freebie-status').then((r) => r.data),
 };
 
-// src/api/machinery.api.ts
-export const machineryApi = {
-  list: () => client.get('/machinery').then((r) => r.data),
-
-  create: (data: { description: string; make_model?: string; reg_no?: string; last_month_availability?: number | string; last_month_utilization?: number | string }) =>
-    client.post('/machinery', data).then((r) => r.data),
-
-  update: (id: string, data: { description?: string; make_model?: string; reg_no?: string; last_month_availability?: number | string; last_month_utilization?: number | string; assigned_to?: string }) =>
-    client.patch(`/machinery/${id}`, data).then((r) => r.data),
-
-  upload: (records: any[]) =>
-    client.post('/machinery/upload', { records }).then((r) => r.data),
-
-  remove: (id: string) =>
-    client.delete(`/machinery/${id}`).then((r) => r.data),
-
-  raiseIssue: (id: string, remarks: string) =>
-    client.post(`/machinery/${id}/issues`, { remarks }).then((r) => r.data),
-
-  listIssues: () =>
-    client.get('/machinery/issues').then((r) => r.data),
-
-  resolveIssue: (issueId: string, resolution_remarks: string) =>
-    client.patch(`/machinery/issues/${issueId}/resolve`, { resolution_remarks }).then((r) => r.data),
-
-  listRequests: () =>
-    client.get('/machinery/requests').then((r) => r.data),
-
-  createRequest: (data: { machinery_name: string; machinery_type?: string; remarks?: string }) =>
-    client.post('/machinery/requests', data).then((r) => r.data),
-
-  completeRequest: (requestId: string) =>
-    client.patch(`/machinery/requests/${requestId}/complete`).then((r) => r.data),
-};
-
 // src/api/reports.api.ts
 export const reportsApi = {
   sla: (params: Record<string, any>) =>
@@ -201,8 +145,6 @@ export const reportsApi = {
     client.get('/reports/daily', { params: { date } }).then((r) => r.data),
   deliveries: (params: Record<string, any>) =>
     client.get('/reports/deliveries', { params }).then((r) => r.data),
-  labourMobilization: (date?: string) =>
-    client.get('/reports/labour-mobilization', { params: date ? { date } : {} }).then((r) => r.data),
   sameDayTrends: (params: Record<string, any>) =>
     client.get('/reports/same-day-trends', { params }).then((r) => r.data),
   sameDayRequests: (params: Record<string, any>) =>

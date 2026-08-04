@@ -6,7 +6,7 @@ import { authApi } from '../api/auth.api';
 interface User {
   userId: string;
   name: string;
-  role: 'PM' | 'ClusterHead' | 'VP' | 'PMHead' | 'PMManager' | 'Admin' | 'Engineer' | 'LabourMob' | 'QC-dept';
+  role: 'PM' | 'ClusterHead' | 'VP' | 'PMHead' | 'PMManager' | 'Admin' | 'Engineer' | 'QC-dept';
   loginId: string;
   email?: string;
   phone?: string;

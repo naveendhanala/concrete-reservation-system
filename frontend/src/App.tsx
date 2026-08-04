@@ -17,9 +17,6 @@ import CalendarPage from './pages/CalendarPage';
 import ReportsPage from './pages/ReportsPage';
 import UsersPage from './pages/UsersPage';
 import ContractorsPage from './pages/ContractorsPage';
-import DailyLogPage from './pages/DailyLogPage';
-import LabourMobilizationReportPage from './pages/LabourMobilizationReportPage';
-import MachineryPage from './pages/MachineryPage';
 import DeliveryLogsPage from './pages/DeliveryLogsPage';
 import SettingsPage from './pages/SettingsPage';
 
@@ -70,7 +67,6 @@ function RoleRoute({ roles, children }: { roles: string[]; children: React.React
 
 function HomeRedirect() {
   const { user } = useAuth();
-  if (user?.role === 'LabourMob') return <Navigate to="/daily-log" replace />;
   if (user?.role === 'QC-dept') return <Navigate to="/delivery-logs" replace />;
   return <DashboardPage />;
 }
@@ -95,16 +91,9 @@ export default function App() {
             <Route path="users" element={
               <RoleRoute roles={['Admin']}><UsersPage /></RoleRoute>
             } />
-            <Route path="daily-log" element={
-              <RoleRoute roles={['Admin', 'LabourMob']}><DailyLogPage /></RoleRoute>
-            } />
             <Route path="contractors" element={
-              <RoleRoute roles={['Admin', 'LabourMob']}><ContractorsPage /></RoleRoute>
+              <RoleRoute roles={['Admin']}><ContractorsPage /></RoleRoute>
             } />
-            <Route path="labour-mobilization" element={
-              <RoleRoute roles={['Admin', 'LabourMob']}><LabourMobilizationReportPage /></RoleRoute>
-            } />
-            <Route path="machinery" element={<MachineryPage />} />
             <Route path="delivery-logs" element={
               <RoleRoute roles={['PMHead', 'PMManager', 'QC-dept']}><DeliveryLogsPage /></RoleRoute>
             } />

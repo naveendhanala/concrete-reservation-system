@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Pencil, Check, X } from 'lucide-react';
+import { Pencil, Check, X, Trash2 } from 'lucide-react';
 import { usersApi } from '../api';
+import { useAuth } from '../context/AuthContext';
 
 interface Contractor {
   contractor_id: string;
@@ -14,6 +15,8 @@ interface Contractor {
 
 function ContractorRow({ contractor }: { contractor: Contractor }) {
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'Admin';
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(contractor.name);
   const [contact, setContact] = useState(contractor.contact ?? '');
@@ -27,6 +30,13 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
       setEditing(false);
     },
     onError: () => toast.error('Failed to update contractor'),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: () => usersApi.deleteContractor(contractor.contractor_id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['contractors'] }),
+    onError: (err: any) =>
+      toast.error(err.response?.data?.error || 'Failed to delete contractor'),
   });
 
   if (editing) {
@@ -109,13 +119,29 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
         </button>
       </td>
       <td className="px-4 py-2">
-        <button
-          onClick={() => setEditing(true)}
-          className="text-blue-500 hover:text-blue-700"
-          title="Edit"
-        >
-          <Pencil className="w-4 h-4" />
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setEditing(true)}
+            className="text-blue-500 hover:text-blue-700"
+            title="Edit"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+          {isAdmin && (
+            <button
+              onClick={() => {
+                if (window.confirm(`Delete contractor "${contractor.name}"? This cannot be undone.`)) {
+                  deleteMut.mutate();
+                }
+              }}
+              disabled={deleteMut.isPending}
+              className="text-red-500 hover:text-red-700 disabled:opacity-50"
+              title="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   );

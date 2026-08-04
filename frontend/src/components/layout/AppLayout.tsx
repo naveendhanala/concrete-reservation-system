@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, ClipboardList, CheckSquare, Calendar,
-  BarChart2, Users, Settings, LogOut, Bell, HardHat, Menu, X, Building2, Wrench, Truck, BookOpen
+  BarChart2, Users, Settings, LogOut, Bell, HardHat, Menu, X, Building2, Truck
 } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,10 +17,7 @@ const navItems = [
   { to: '/calendar', icon: Calendar, label: 'Capacity Calendar', roles: ['PMHead','PMManager','VP','Admin'] },
   { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['PM','VP','ClusterHead','PMHead','PMManager','Admin'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['Admin'] },
-  { to: '/daily-log', icon: BookOpen, label: 'Daily Log', roles: ['Admin', 'LabourMob'] },
-  { to: '/contractors', icon: Building2, label: 'Contractors', roles: ['Admin', 'LabourMob'] },
-  { to: '/labour-mobilization', icon: BarChart2, label: 'Labour Mobilization Report', roles: ['Admin', 'LabourMob'] },
-  { to: '/machinery', icon: Wrench, label: 'Machinery', roles: ['Admin'] },
+  { to: '/contractors', icon: Building2, label: 'Contractors', roles: ['Admin'] },
   { to: '/settings', icon: Settings, label: 'Settings', roles: ['Admin'] },
 ];
 
@@ -116,7 +113,6 @@ export default function AppLayout() {
     PMHead: 'bg-green-100 text-green-800',
     PMManager: 'bg-teal-100 text-teal-800',
     Admin: 'bg-red-100 text-red-800',
-    LabourMob: 'bg-amber-100 text-amber-800',
     'QC-dept': 'bg-cyan-100 text-cyan-800',
   };
 

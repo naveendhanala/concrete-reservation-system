@@ -340,14 +340,27 @@ export default function UsersPage() {
                       <button
                         onClick={() => toggleActiveMutation.mutate({ id: u.user_id, active: !u.active_flag })}
                         disabled={toggleActiveMutation.isPending}
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium cursor-pointer border transition-colors ${
-                          u.active_flag
-                            ? 'bg-green-100 text-green-800 border-green-200 hover:bg-red-50 hover:text-red-700 hover:border-red-200'
-                            : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-green-50 hover:text-green-700 hover:border-green-200'
-                        }`}
                         title={u.active_flag ? 'Click to mark inactive' : 'Click to activate'}
+                        className="flex items-center gap-2 disabled:opacity-50"
                       >
-                        {u.active_flag ? 'Active' : 'Inactive'}
+                        <span
+                          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                            u.active_flag ? 'bg-green-500' : 'bg-gray-300'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                              u.active_flag ? 'translate-x-4' : 'translate-x-1'
+                            }`}
+                          />
+                        </span>
+                        <span
+                          className={`text-xs font-medium ${
+                            u.active_flag ? 'text-green-700' : 'text-gray-500'
+                          }`}
+                        >
+                          {u.active_flag ? 'Active' : 'Inactive'}
+                        </span>
                       </button>
                     </td>
                     <td className="px-4 py-3">

@@ -19,8 +19,6 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
   const isAdmin = user?.role === 'Admin';
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(contractor.name);
-  const [contact, setContact] = useState(contractor.contact ?? '');
-  const [mobilizedBy, setMobilizedBy] = useState(contractor.mobilized_by ?? '');
 
   const updateMut = useMutation({
     mutationFn: (data: Record<string, any>) =>
@@ -51,22 +49,6 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
           />
         </td>
         <td className="px-4 py-2">
-          <input
-            value={contact}
-            onChange={(e) => setContact(e.target.value)}
-            className="border rounded px-2 py-1 text-sm w-full font-mono"
-            placeholder="+91..."
-          />
-        </td>
-        <td className="px-4 py-2">
-          <input
-            value={mobilizedBy}
-            onChange={(e) => setMobilizedBy(e.target.value)}
-            className="border rounded px-2 py-1 text-sm w-full"
-            placeholder="Mobilized by"
-          />
-        </td>
-        <td className="px-4 py-2">
           <span
             className={`text-xs px-2 py-1 rounded-full ${
               contractor.active_flag ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
@@ -78,9 +60,7 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
         <td className="px-4 py-2">
           <div className="flex gap-2">
             <button
-              onClick={() =>
-                updateMut.mutate({ name, contact: contact || null, mobilized_by: mobilizedBy || null })
-              }
+              onClick={() => updateMut.mutate({ name })}
               disabled={updateMut.isPending || !name.trim()}
               className="text-green-600 hover:text-green-800 disabled:opacity-50"
             >
@@ -88,8 +68,6 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
             </button>
             <button onClick={() => {
               setName(contractor.name);
-              setContact(contractor.contact ?? '');
-              setMobilizedBy(contractor.mobilized_by ?? '');
               setEditing(false);
             }} className="text-gray-500 hover:text-gray-700">
               <X className="w-4 h-4" />
@@ -103,19 +81,31 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
   return (
     <tr className="hover:bg-gray-50 border-b border-gray-100">
       <td className="px-4 py-2 text-sm font-medium text-gray-700">{contractor.name}</td>
-      <td className="px-4 py-2 text-sm font-mono text-gray-500">{contractor.contact ?? '—'}</td>
-      <td className="px-4 py-2 text-sm text-gray-500">{contractor.mobilized_by ?? '—'}</td>
       <td className="px-4 py-2">
         <button
           onClick={() => updateMut.mutate({ active_flag: !contractor.active_flag })}
           disabled={updateMut.isPending}
-          className={`text-xs px-2 py-1 rounded-full ${
-            contractor.active_flag
-              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-          }`}
+          title={contractor.active_flag ? 'Click to deactivate' : 'Click to activate'}
+          className="flex items-center gap-2 disabled:opacity-50"
         >
-          {contractor.active_flag ? 'Active' : 'Inactive'}
+          <span
+            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+              contractor.active_flag ? 'bg-green-500' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                contractor.active_flag ? 'translate-x-4' : 'translate-x-1'
+              }`}
+            />
+          </span>
+          <span
+            className={`text-xs font-medium ${
+              contractor.active_flag ? 'text-green-700' : 'text-gray-500'
+            }`}
+          >
+            {contractor.active_flag ? 'Active' : 'Inactive'}
+          </span>
         </button>
       </td>
       <td className="px-4 py-2">
@@ -150,12 +140,9 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
 function AddContractorRow({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState('');
-  const [contact, setContact] = useState('');
-  const [mobilizedBy, setMobilizedBy] = useState('');
 
   const mut = useMutation({
-    mutationFn: () =>
-      usersApi.createContractor({ name, contact: contact || null, mobilized_by: mobilizedBy || null }),
+    mutationFn: () => usersApi.createContractor({ name }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contractors'] });
       onDone();
@@ -172,22 +159,6 @@ function AddContractorRow({ onDone }: { onDone: () => void }) {
           className="border rounded px-2 py-1 text-sm w-full"
           placeholder="Name *"
           autoFocus
-        />
-      </td>
-      <td className="px-4 py-2">
-        <input
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
-          className="border rounded px-2 py-1 text-sm w-full font-mono"
-          placeholder="+91..."
-        />
-      </td>
-      <td className="px-4 py-2">
-        <input
-          value={mobilizedBy}
-          onChange={(e) => setMobilizedBy(e.target.value)}
-          className="border rounded px-2 py-1 text-sm w-full"
-          placeholder="Mobilized by"
         />
       </td>
       <td className="px-4 py-2" />
@@ -258,8 +229,6 @@ export default function ContractorsPage() {
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobilized By</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
@@ -270,11 +239,11 @@ export default function ContractorsPage() {
             )}
             {contractorsLoading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-400 text-sm">Loading...</td>
+                <td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">Loading...</td>
               </tr>
             ) : filteredContractors.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-400 text-sm">No contractors found.</td>
+                <td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">No contractors found.</td>
               </tr>
             ) : (
               filteredContractors.map((c) => (

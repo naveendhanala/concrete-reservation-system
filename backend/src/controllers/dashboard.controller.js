@@ -194,7 +194,8 @@ exports.vpDashboard = asyncHandler(async (req, res) => {
     query(
       `SELECT COALESCE(SUM(d.quantity_m3), 0) AS today_actual_m3
        FROM reservation_deliveries d
-       WHERE DATE(d.delivered_at AT TIME ZONE 'Asia/Kolkata') = CURRENT_DATE`
+       WHERE DATE((d.delivered_at AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 hours')
+           = DATE((NOW() AT TIME ZONE 'Asia/Kolkata') - INTERVAL '7 hours')`
     ),
   ]);
 

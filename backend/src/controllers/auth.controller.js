@@ -70,7 +70,12 @@ exports.refreshToken = asyncHandler(async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) throw new AppError('Refresh token required', 400);
 
-  const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+  let decoded;
+  try {
+    decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+  } catch (err) {
+    throw new AppError('Invalid or expired refresh token', 401);
+  }
   const { rows } = await query('SELECT user_id, role, active_flag FROM users WHERE user_id = $1', [decoded.userId]);
   if (!rows[0] || !rows[0].active_flag) throw new AppError('User not found', 401);
 

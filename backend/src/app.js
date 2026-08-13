@@ -88,6 +88,13 @@ app.get('/api/cron/generate-slots', async (req, res) => {
     const { generateSlotsForDate } = require('./config/shifts');
     const { query } = require('./config/db');
     let count = 0;
+    const days = [];
+
+    // One batched multi-row INSERT per day (20 rows) instead of 280 individual
+    // awaited inserts — cuts round-trips 20x so this stays well under the
+    // function timeout. Each day commits independently: a failure on one day
+    // doesn't roll back days that already succeeded, and doesn't stop the rest
+    // of the run.
     for (let d = 1; d <= 14; d++) {
       const date = new Date();
       date.setDate(date.getDate() + d);
@@ -95,16 +102,32 @@ app.get('/api/cron/generate-slots', async (req, res) => {
       const mm   = String(date.getMonth() + 1).padStart(2, '0');
       const dd   = String(date.getDate()).padStart(2, '0');
       const dateStr = `${yyyy}-${mm}-${dd}`;
-      for (const slot of generateSlotsForDate(dateStr)) {
+      const slots = generateSlotsForDate(dateStr);
+
+      const placeholders = [];
+      const params = [];
+      slots.forEach((slot, i) => {
+        const base = i * 5;
+        placeholders.push(`($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5})`);
+        params.push(slot.slot_date, slot.start_time, slot.end_time, slot.capacity_m3, slot.batching_plant);
+      });
+
+      try {
         const { rowCount } = await query(
           `INSERT INTO slots (slot_date, start_time, end_time, capacity_m3, batching_plant)
-           VALUES ($1,$2,$3,$4,$5) ON CONFLICT (slot_date, start_time, batching_plant) DO NOTHING`,
-          [slot.slot_date, slot.start_time, slot.end_time, slot.capacity_m3, slot.batching_plant]
+           VALUES ${placeholders.join(',')}
+           ON CONFLICT (slot_date, start_time, batching_plant) DO NOTHING`,
+          params
         );
         count += rowCount;
+        days.push({ date: dateStr, ok: true, created: rowCount });
+      } catch (err) {
+        days.push({ date: dateStr, ok: false, error: err.message });
       }
     }
-    res.json({ ok: true, created: count });
+
+    const failedDays = days.filter((d) => !d.ok);
+    res.status(failedDays.length ? 207 : 200).json({ ok: failedDays.length === 0, created: count, days });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

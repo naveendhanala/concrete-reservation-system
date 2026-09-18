@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Pencil, Check, X, Trash2 } from 'lucide-react';
+import { Pencil, Check, X, Trash2, Search } from 'lucide-react';
 import { usersApi } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { topMatches, type MatchStrength } from '../utils/fuzzyMatch';
 
 interface Contractor {
   contractor_id: string;
@@ -137,9 +138,24 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
   );
 }
 
-function AddContractorRow({ onDone }: { onDone: () => void }) {
+const STRENGTH_STYLES: Record<MatchStrength, string> = {
+  Strong: 'bg-red-100 text-red-700',
+  Possible: 'bg-amber-100 text-amber-700',
+  Weak: 'bg-gray-100 text-gray-500',
+};
+
+// Mandatory search → review → add flow: admins must check for a close
+// name match before the actual "add contractor" form becomes available.
+function AddContractorRow({ contractors, onDone }: { contractors: Contractor[]; onDone: () => void }) {
   const qc = useQueryClient();
+  const [step, setStep] = useState<'search' | 'confirm'>('search');
+  const [searchTerm, setSearchTerm] = useState('');
   const [name, setName] = useState('');
+
+  const matches = useMemo(
+    () => (searchTerm.trim().length >= 2 ? topMatches(searchTerm, contractors, (c) => c.name) : []),
+    [searchTerm, contractors]
+  );
 
   const mut = useMutation({
     mutationFn: () => usersApi.createContractor({ name }),
@@ -149,6 +165,74 @@ function AddContractorRow({ onDone }: { onDone: () => void }) {
     },
     onError: () => toast.error('Failed to add contractor'),
   });
+
+  if (step === 'search') {
+    const canContinue = searchTerm.trim().length >= 2;
+    return (
+      <>
+        <tr className="bg-blue-50">
+          <td className="px-4 py-2" colSpan={2}>
+            <div className="relative">
+              <Search className="w-4 h-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" />
+              <input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border rounded pl-8 pr-2 py-1 text-sm w-full"
+                placeholder="Search existing contractors before adding..."
+                autoFocus
+              />
+            </div>
+          </td>
+          <td className="px-4 py-2">
+            <button onClick={onDone} className="text-gray-500 hover:text-gray-700">
+              <X className="w-4 h-4" />
+            </button>
+          </td>
+        </tr>
+        <tr className="bg-blue-50/60">
+          <td colSpan={3} className="px-4 pb-3 pt-0">
+            {searchTerm.trim().length < 2 ? (
+              <p className="text-xs text-gray-500">
+                Type at least 2 characters to check for existing contractors with a similar name.
+              </p>
+            ) : matches.length === 0 ? (
+              <p className="text-xs text-gray-500">No contractors found.</p>
+            ) : (
+              <ul className="text-sm border border-gray-200 rounded bg-white divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                {matches.map(({ item, strength }) => (
+                  <li key={item.contractor_id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toast('That contractor already exists — edit it instead of adding a duplicate.', { icon: 'ℹ️' });
+                        onDone();
+                      }}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-gray-50 text-left"
+                    >
+                      <span className="text-gray-700">{item.name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STRENGTH_STYLES[strength]}`}>
+                        {strength} match
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => { setName(searchTerm.trim()); setStep('confirm'); }}
+                disabled={!canContinue}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                None of these match — continue to add "{searchTerm.trim()}"
+              </button>
+            </div>
+          </td>
+        </tr>
+      </>
+    );
+  }
 
   return (
     <tr className="bg-green-50">
@@ -163,7 +247,13 @@ function AddContractorRow({ onDone }: { onDone: () => void }) {
       </td>
       <td className="px-4 py-2" />
       <td className="px-4 py-2">
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <button
+            onClick={() => setStep('search')}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            Back
+          </button>
           <button
             onClick={() => {
               if (!name.trim()) { toast.error('Name is required'); return; }
@@ -235,7 +325,10 @@ export default function ContractorsPage() {
           </thead>
           <tbody className="bg-white">
             {addingContractor && (
-              <AddContractorRow onDone={() => setAddingContractor(false)} />
+              <AddContractorRow
+                contractors={contractors as Contractor[]}
+                onDone={() => setAddingContractor(false)}
+              />
             )}
             {contractorsLoading ? (
               <tr>

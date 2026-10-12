@@ -303,17 +303,18 @@ export default function UsersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  {['Name', 'Login ID', 'Password', 'Role', 'Packages / Plants', 'Status', 'Actions'].map((h) => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
+                  {['Name', 'Login ID', 'Mobile No', 'Password', 'Role', 'Packages / Plants', 'Status', 'Actions'].map((h) => (
+                    <th key={h} className="text-left px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {users.map((u: any) => (
                   <tr key={u.user_id} className={`hover:bg-gray-50 ${!u.active_flag ? 'opacity-60' : ''}`}>
-                    <td className="px-4 py-3 font-medium text-gray-900">{u.name}</td>
-                    <td className="px-4 py-3 font-mono text-gray-600 text-xs">{u.login_id}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 font-medium text-gray-900">{u.name}</td>
+                    <td className="px-3 py-3 font-mono text-gray-600 text-xs">{u.login_id}</td>
+                    <td className="px-3 py-3 font-mono text-gray-600 text-xs whitespace-nowrap">{u.phone || '—'}</td>
+                    <td className="px-3 py-3">
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono text-xs text-gray-700">
                           {visiblePw[u.user_id] ? (u.plain_password || '—') : (u.plain_password ? '••••••••' : '—')}
@@ -328,15 +329,15 @@ export default function UsersPage() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${roleColors[u.role]}`}>{u.role}</span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-500 max-w-xs">
+                    <td className="px-3 py-3 text-xs text-gray-500 max-w-xs">
                       {u.batching_plants?.filter(Boolean).length
                         ? u.batching_plants.filter(Boolean).join(', ')
                         : u.packages?.filter(Boolean).join(', ') || '—'}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <button
                         onClick={() => toggleActiveMutation.mutate({ id: u.user_id, active: !u.active_flag })}
                         disabled={toggleActiveMutation.isPending}
@@ -363,7 +364,7 @@ export default function UsersPage() {
                         </span>
                       </button>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <button
                         onClick={() => setModalUser(u)}
                         className="p-1.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50"
@@ -376,7 +377,7 @@ export default function UsersPage() {
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-400">No users found.</td>
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-400">No users found.</td>
                   </tr>
                 )}
               </tbody>

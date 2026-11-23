@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { Pencil, Check, X, Trash2, Search } from 'lucide-react';
+import { Pencil, Check, X, Search } from 'lucide-react';
 import { usersApi } from '../api';
-import { useAuth } from '../context/AuthContext';
 import { topMatches, type MatchStrength } from '../utils/fuzzyMatch';
 
 interface Contractor {
@@ -16,8 +15,6 @@ interface Contractor {
 
 function ContractorRow({ contractor }: { contractor: Contractor }) {
   const qc = useQueryClient();
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'Admin';
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(contractor.name);
 
@@ -29,13 +26,6 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
       setEditing(false);
     },
     onError: () => toast.error('Failed to update contractor'),
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: () => usersApi.deleteContractor(contractor.contractor_id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['contractors'] }),
-    onError: (err: any) =>
-      toast.error(err.response?.data?.error || 'Failed to delete contractor'),
   });
 
   if (editing) {
@@ -118,20 +108,6 @@ function ContractorRow({ contractor }: { contractor: Contractor }) {
           >
             <Pencil className="w-4 h-4" />
           </button>
-          {isAdmin && (
-            <button
-              onClick={() => {
-                if (window.confirm(`Delete contractor "${contractor.name}"? This cannot be undone.`)) {
-                  deleteMut.mutate();
-                }
-              }}
-              disabled={deleteMut.isPending}
-              className="text-red-500 hover:text-red-700 disabled:opacity-50"
-              title="Delete"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
         </div>
       </td>
     </tr>

@@ -92,7 +92,7 @@ export default function App() {
               <RoleRoute roles={['Admin']}><UsersPage /></RoleRoute>
             } />
             <Route path="contractors" element={
-              <RoleRoute roles={['Admin']}><ContractorsPage /></RoleRoute>
+              <RoleRoute roles={['Admin','PMHead']}><ContractorsPage /></RoleRoute>
             } />
             <Route path="delivery-logs" element={
               <RoleRoute roles={['PMHead', 'PMManager', 'QC-dept']}><DeliveryLogsPage /></RoleRoute>

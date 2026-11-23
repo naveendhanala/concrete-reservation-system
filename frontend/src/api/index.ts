@@ -99,9 +99,6 @@ export const usersApi = {
   updateContractor: (id: string, data: Record<string, any>) =>
     client.patch(`/users/contractors/${id}`, data).then((r) => r.data),
 
-  deleteContractor: (id: string) =>
-    client.delete(`/users/contractors/${id}`).then((r) => r.data),
-
   create: (data: Record<string, any>) =>
     client.post('/users', data).then((r) => r.data),
 

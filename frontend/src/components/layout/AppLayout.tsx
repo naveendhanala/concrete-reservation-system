@@ -17,7 +17,7 @@ const navItems = [
   { to: '/calendar', icon: Calendar, label: 'Capacity Calendar', roles: ['PMHead','PMManager','VP','Admin'] },
   { to: '/reports', icon: BarChart2, label: 'Reports', roles: ['PM','VP','ClusterHead','PMHead','PMManager','Admin'] },
   { to: '/users', icon: Users, label: 'Users', roles: ['Admin'] },
-  { to: '/contractors', icon: Building2, label: 'Contractors', roles: ['Admin'] },
+  { to: '/contractors', icon: Building2, label: 'Contractors', roles: ['Admin','PMHead'] },
   { to: '/settings', icon: Settings, label: 'Settings', roles: ['Admin'] },
 ];
 

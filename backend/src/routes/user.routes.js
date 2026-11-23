@@ -216,9 +216,9 @@ router.patch('/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
   res.json(rows[0]);
 }));
 
-// ── Contractor mutations (Admin only) ─────────────────────────────────────
+// ── Contractor mutations (Admin and PMHead) ─────────────────────────────────────
 
-router.post('/contractors', requireRole('Admin'), asyncHandler(async (req, res) => {
+router.post('/contractors', requireRole('Admin', 'PMHead'), asyncHandler(async (req, res) => {
   const { name, contact, mobilized_by } = req.body;
   if (!name) throw new AppError('name is required', 400);
   const { rows } = await query(
@@ -228,7 +228,7 @@ router.post('/contractors', requireRole('Admin'), asyncHandler(async (req, res) 
   res.status(201).json(rows[0]);
 }));
 
-router.patch('/contractors/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
+router.patch('/contractors/:id', requireRole('Admin', 'PMHead'), asyncHandler(async (req, res) => {
   const { name, contact, mobilized_by, active_flag } = req.body;
   const { rows } = await query(
     `UPDATE contractors
@@ -243,21 +243,6 @@ router.patch('/contractors/:id', requireRole('Admin'), asyncHandler(async (req, 
   res.json(rows[0]);
 }));
 
-// Hard delete is blocked when the contractor has reservation history —
-// admins must use the Inactive flag instead so past reports stay accurate.
-router.delete('/contractors/:id', requireRole('Admin'), asyncHandler(async (req, res) => {
-  const { rows: existing } = await query(
-    `SELECT 1 FROM contractors WHERE contractor_id = $1`, [req.params.id]
-  );
-  if (!existing.length) throw new AppError('Contractor not found', 404);
-  const { rows: [{ count }] } = await query(
-    `SELECT COUNT(*)::int AS count FROM reservations WHERE contractor_id = $1`, [req.params.id]
-  );
-  if (count > 0) {
-    throw new AppError(`Contractor is used in ${count} reservation(s). Mark them Inactive instead.`, 409);
-  }
-  await query(`DELETE FROM contractors WHERE contractor_id = $1`, [req.params.id]);
-  res.json({ success: true });
-}));
+// Contractors cannot be deleted — use the Inactive flag instead so past reports stay accurate.
 
 module.exports = router;

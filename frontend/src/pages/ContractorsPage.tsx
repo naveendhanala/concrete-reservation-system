@@ -120,208 +120,134 @@ const STRENGTH_STYLES: Record<MatchStrength, string> = {
   Weak: 'bg-gray-100 text-gray-500',
 };
 
-// Mandatory search → review → add flow: admins must check for a close
-// name match before the actual "add contractor" form becomes available.
-function AddContractorRow({ contractors, onDone }: { contractors: Contractor[]; onDone: () => void }) {
+export default function ContractorsPage() {
   const qc = useQueryClient();
-  const [step, setStep] = useState<'search' | 'confirm'>('search');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [name, setName] = useState('');
+  const [search, setSearch] = useState('');
+  const [showList, setShowList] = useState(false);
 
-  const matches = useMemo(
-    () => (searchTerm.trim().length >= 2 ? topMatches(searchTerm, contractors, (c) => c.name) : []),
-    [searchTerm, contractors]
+  const { data: contractors = [], isLoading } = useQuery({
+    queryKey: ['contractors'],
+    queryFn: () => usersApi.getContractors('', true),
+  });
+  const all = contractors as Contractor[];
+
+  const term = search.trim();
+  const isSearching = term.length > 0;
+
+  const filtered = useMemo(
+    () => (isSearching ? all.filter((c) => c.name.toLowerCase().includes(term.toLowerCase())) : all),
+    [all, term, isSearching]
   );
 
-  const mut = useMutation({
-    mutationFn: () => usersApi.createContractor({ name }),
+  // No direct match: surface close (fuzzy) names so near-duplicates are noticed before adding.
+  const similar = useMemo(
+    () => (term.length >= 2 && filtered.length === 0 ? topMatches(term, all, (c) => c.name) : []),
+    [term, filtered.length, all]
+  );
+
+  const addMut = useMutation({
+    mutationFn: () => usersApi.createContractor({ name: term }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contractors'] });
-      onDone();
+      toast.success(`Added "${term}"`);
+      setSearch('');
     },
     onError: () => toast.error('Failed to add contractor'),
   });
 
-  if (step === 'search') {
-    const canContinue = searchTerm.trim().length >= 2;
-    return (
-      <>
-        <tr className="bg-blue-50">
-          <td className="px-4 py-2" colSpan={2}>
-            <div className="relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" />
-              <input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="border rounded pl-8 pr-2 py-1 text-sm w-full"
-                placeholder="Search existing contractors before adding..."
-                autoFocus
-              />
-            </div>
-          </td>
-          <td className="px-4 py-2">
-            <button onClick={onDone} className="text-gray-500 hover:text-gray-700">
-              <X className="w-4 h-4" />
-            </button>
-          </td>
-        </tr>
-        <tr className="bg-blue-50/60">
-          <td colSpan={3} className="px-4 pb-3 pt-0">
-            {searchTerm.trim().length < 2 ? (
-              <p className="text-xs text-gray-500">
-                Type at least 2 characters to check for existing contractors with a similar name.
-              </p>
-            ) : matches.length === 0 ? (
-              <p className="text-xs text-gray-500">No contractors found.</p>
-            ) : (
-              <ul className="text-sm border border-gray-200 rounded bg-white divide-y divide-gray-100 max-h-48 overflow-y-auto">
-                {matches.map(({ item, strength }) => (
-                  <li key={item.contractor_id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        toast('That contractor already exists — edit it instead of adding a duplicate.', { icon: 'ℹ️' });
-                        onDone();
-                      }}
-                      className="w-full flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-gray-50 text-left"
-                    >
-                      <span className="text-gray-700">{item.name}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STRENGTH_STYLES[strength]}`}>
-                        {strength} match
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="mt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => { setName(searchTerm.trim()); setStep('confirm'); }}
-                disabled={!canContinue}
-                className="text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                None of these match — continue to add "{searchTerm.trim()}"
-              </button>
-            </div>
-          </td>
-        </tr>
-      </>
-    );
-  }
-
-  return (
-    <tr className="bg-green-50">
-      <td className="px-4 py-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="border rounded px-2 py-1 text-sm w-full"
-          placeholder="Name *"
-          autoFocus
-        />
-      </td>
-      <td className="px-4 py-2" />
-      <td className="px-4 py-2">
-        <div className="flex gap-2 items-center">
-          <button
-            onClick={() => setStep('search')}
-            className="text-xs text-gray-500 hover:text-gray-700"
-          >
-            Back
-          </button>
-          <button
-            onClick={() => {
-              if (!name.trim()) { toast.error('Name is required'); return; }
-              mut.mutate();
-            }}
-            disabled={mut.isPending}
-            className="text-green-600 hover:text-green-800 disabled:opacity-50"
-          >
-            <Check className="w-4 h-4" />
-          </button>
-          <button onClick={onDone} className="text-gray-500 hover:text-gray-700">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
-export default function ContractorsPage() {
-  const [addingContractor, setAddingContractor] = useState(false);
-  const [contractorSearch, setContractorSearch] = useState('');
-
-  const { data: contractors = [], isLoading: contractorsLoading } = useQuery({
-    queryKey: ['contractors'],
-    queryFn: () => usersApi.getContractors('', true),
-  });
-
-  const filteredContractors = (contractors as Contractor[]).filter((c) =>
-    c.name.toLowerCase().includes(contractorSearch.toLowerCase())
-  );
+  const listVisible = isSearching || showList;
+  const noMatch = !isLoading && isSearching && filtered.length === 0;
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-gray-800">
-            Contractor Master
-            <span className="ml-2 text-sm font-normal text-gray-400">
-              ({(contractors as Contractor[]).length})
-            </span>
-          </h2>
+      <div className="max-w-xl mx-auto mt-8 text-center">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">
+          Contractor Master
+          <span className="ml-2 text-sm font-normal text-gray-400">({all.length})</span>
+        </h2>
+        <div className="relative">
+          <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            value={contractorSearch}
-            onChange={(e) => setContractorSearch(e.target.value)}
-            placeholder="Search by name..."
-            className="border rounded px-3 py-1.5 text-sm w-64"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search contractors..."
+            className="border rounded-lg pl-10 pr-3 py-2.5 text-sm w-full shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+            autoFocus
           />
         </div>
-        {!addingContractor && (
+        {!isSearching && (
           <button
-            onClick={() => setAddingContractor(true)}
-            className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700"
+            type="button"
+            onClick={() => setShowList((v) => !v)}
+            className="mt-2 text-xs text-blue-600 hover:text-blue-800"
           >
-            + Add Contractor
+            {showList ? 'Hide contractors list' : 'Show contractors list'}
           </button>
+        )}
+
+        {noMatch && (
+          <div className="mt-4 text-sm text-gray-600">
+            <p>No contractor found matching "{term}".</p>
+            {similar.length > 0 && (
+              <div className="mt-3 text-left">
+                <p className="text-xs text-gray-500 mb-1">Similar existing names:</p>
+                <ul className="border border-gray-200 rounded bg-white divide-y divide-gray-100">
+                  {similar.map(({ item, strength }) => (
+                    <li key={item.contractor_id}>
+                      <button
+                        type="button"
+                        onClick={() => setSearch(item.name)}
+                        className="w-full flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-gray-50 text-left"
+                      >
+                        <span className="text-gray-700">{item.name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STRENGTH_STYLES[strength]}`}>
+                          {strength} match
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => addMut.mutate()}
+              disabled={addMut.isPending || term.length < 2}
+              className="mt-3 text-sm bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              Add "{term}" as new contractor
+            </button>
+          </div>
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-        <table className="min-w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white">
-            {addingContractor && (
-              <AddContractorRow
-                contractors={contractors as Contractor[]}
-                onDone={() => setAddingContractor(false)}
-              />
-            )}
-            {contractorsLoading ? (
+      {listVisible && !noMatch && (
+        <div className="mt-6 overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+          <table className="min-w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">Loading...</td>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
-            ) : filteredContractors.length === 0 ? (
-              <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">No contractors found.</td>
-              </tr>
-            ) : (
-              filteredContractors.map((c) => (
-                <ContractorRow key={c.contractor_id} contractor={c} />
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="bg-white">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">Loading...</td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">No contractors found.</td>
+                </tr>
+              ) : (
+                filtered.map((c) => <ContractorRow key={c.contractor_id} contractor={c} />)
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
